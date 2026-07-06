@@ -1,0 +1,69 @@
+#pragma once
+
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#include "sovrano/core/llama_backend.hpp"
+
+namespace sovrano {
+
+class Config;
+
+class ModelError : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
+struct ModelParams {
+    std::string path;
+    std::int32_t context_length = 4096;
+    std::int32_t threads = 0;  // 0 is invalid; from_config fills a default
+    bool use_mmap = true;
+    bool use_mlock = false;
+
+    // Reads: model.path (required), model.context_length, model.threads
+    // (default: hardware concurrency), memory.use_mmap, memory.use_mlock.
+    // Throws ModelError if model.path is missing.
+    static ModelParams from_config(const Config& cfg);
+};
+
+// High-level wrapper around a GGUF model. Owns validation and error
+// translation; the llama.cpp specifics live behind LlamaBackend (pimpl,
+// so this header never includes llama.h).
+class LlamaModel {
+public:
+    // Production: loads the model via the real llama.cpp backend.
+    explicit LlamaModel(const ModelParams& params);
+
+    // Test seam: inject a backend (mock). Still validates `params`.
+    LlamaModel(const ModelParams& params, std::unique_ptr<LlamaBackend> backend);
+
+    ~LlamaModel();
+    LlamaModel(LlamaModel&&) noexcept;
+    LlamaModel& operator=(LlamaModel&&) noexcept;
+    LlamaModel(const LlamaModel&) = delete;
+    LlamaModel& operator=(const LlamaModel&) = delete;
+
+    std::vector<TokenId> tokenize(const std::string& text,
+                                  bool add_special = true) const;
+
+    // Throws ModelError if any token is outside [0, vocab_size).
+    std::string detokenize(const std::vector<TokenId>& tokens) const;
+
+    // Forward pass over a fresh sequence; returns logits of the last token.
+    // Throws ModelError on empty input, input longer than the context, or
+    // a backend logits/vocab size mismatch.
+    std::vector<float> forward(const std::vector<TokenId>& tokens);
+
+    std::int32_t vocab_size() const;
+    std::uint32_t context_length() const;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+}  // namespace sovrano

@@ -1,0 +1,6 @@
+build/
+.cache/
+models/
+compile_commands.json
+*.gguf
+.DS_Store
