@@ -7,6 +7,7 @@
 #include <string>
 
 #include "sovrano/core/engine.hpp"
+#include "sovrano/speculative/speculative_decoder.hpp"
 #include "sovrano/utils/config.hpp"
 #include "sovrano/utils/logger.hpp"
 
@@ -85,11 +86,19 @@ int main(int argc, char** argv) {
         engine_cfg.n_threads = static_cast<int>(cfg.get_int("model.threads", 4));
         engine_cfg.use_mmap = cfg.get_bool("memory.use_mmap", true);
         engine_cfg.use_mlock = cfg.get_bool("memory.use_mlock", false);
+        engine_cfg.use_speculative = cfg.get_bool("speculative.enabled", true);
+        engine_cfg.draft_model_path =
+            cfg.get_string("speculative.draft_model_path", "");
+        engine_cfg.draft_tokens =
+            static_cast<int>(cfg.get_int("speculative.draft_tokens", 16));
 
         log.info("loading model...");
         sovrano::core::SovranoEngine engine(engine_cfg);
         log.info("model loaded (vocab " + std::to_string(engine.vocab_size()) +
                  ", ctx " + std::to_string(engine.context_size()) + ")");
+        if (engine.speculative_metrics() != nullptr)
+            log.info("speculative decoding: on (draft " +
+                     engine_cfg.draft_model_path + ")");
 
         sovrano::core::GenerationConfig gen;
         gen.max_tokens = max_tokens;
@@ -98,6 +107,15 @@ int main(int argc, char** argv) {
             return true;
         }, gen);
         std::cout << "\n";
+
+        if (const auto* m = engine.speculative_metrics()) {
+            log.info("speculative metrics: acceptance " +
+                     std::to_string(m->acceptance_rate()) + ", overall " +
+                     std::to_string(m->overall_speed()) + " tok/s (draft " +
+                     std::to_string(m->total_draft_tokens) + ", accepted " +
+                     std::to_string(m->total_accepted_tokens) + ", rejected " +
+                     std::to_string(m->total_rejected_tokens) + ")");
+        }
         return EXIT_SUCCESS;
     } catch (const sovrano::core::EngineError& e) {
         std::cerr << "engine error: " << e.what() << "\n";

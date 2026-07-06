@@ -128,14 +128,35 @@ public:
     }
 
     std::vector<float> decode(const std::vector<TokenId>& tokens) override {
-        // Fresh sequence: clear the KV cache from prior forwards.
-        llama_memory_clear(llama_get_memory(ctx_), /*data=*/true);
-        return decode_impl(tokens);
+        reset();
+        return decode_impl(tokens, /*all_logits=*/false).back();
     }
 
     std::vector<float> decode_append(const std::vector<TokenId>& tokens) override {
-        return decode_impl(tokens);  // KV cache kept, positions auto-tracked
+        return decode_impl(tokens, /*all_logits=*/false).back();
     }
+
+    std::vector<std::vector<float>> decode_batch(
+        const std::vector<TokenId>& tokens) override {
+        return decode_impl(tokens, /*all_logits=*/true);
+    }
+
+    void truncate_to(std::uint32_t n_tokens) override {
+        if (n_tokens >= n_past_) return;
+        if (!llama_memory_seq_rm(llama_get_memory(ctx_), /*seq_id=*/0,
+                                 static_cast<llama_pos>(n_tokens),
+                                 /*p1=*/-1))
+            throw ModelError("failed to truncate sequence to " +
+                             std::to_string(n_tokens) + " tokens");
+        n_past_ = n_tokens;
+    }
+
+    void reset() override {
+        llama_memory_clear(llama_get_memory(ctx_), /*data=*/true);
+        n_past_ = 0;
+    }
+
+    std::uint32_t n_past() const override { return n_past_; }
 
     std::int32_t vocab_size() const override {
         return llama_vocab_n_tokens(vocab_);
@@ -146,26 +167,45 @@ public:
     TokenId eos_token() const override { return llama_vocab_eos(vocab_); }
 
 private:
-    std::vector<float> decode_impl(const std::vector<TokenId>& tokens) {
-        // llama_batch_get_one does not take ownership but wants mutable data.
-        std::vector<TokenId> input = tokens;
-        llama_batch batch =
-            llama_batch_get_one(input.data(), static_cast<int32_t>(input.size()));
+    // Explicit positions and logits flags: speculative decoding truncates
+    // the sequence, which llama's automatic position tracking does not
+    // survive. Returns one logits vector per requested output position
+    // (only the last one unless all_logits).
+    std::vector<std::vector<float>> decode_impl(
+        const std::vector<TokenId>& tokens, bool all_logits) {
+        const auto n = static_cast<int32_t>(tokens.size());
+        if (n == 0) throw ModelError("decode of zero tokens");
+
+        llama_batch batch = llama_batch_init(n, /*embd=*/0, /*n_seq_max=*/1);
+        batch.n_tokens = n;
+        for (int32_t i = 0; i < n; ++i) {
+            batch.token[i] = tokens[static_cast<std::size_t>(i)];
+            batch.pos[i] = static_cast<llama_pos>(n_past_) + i;
+            batch.n_seq_id[i] = 1;
+            batch.seq_id[i][0] = 0;
+            batch.logits[i] = static_cast<int8_t>(all_logits || i == n - 1);
+        }
 
         const int32_t rc = llama_decode(ctx_, batch);
+        llama_batch_free(batch);
         if (rc != 0)
             throw ModelError("llama_decode failed with status " +
                              std::to_string(rc));
-
-        const float* logits = llama_get_logits_ith(
-            ctx_, static_cast<int32_t>(input.size()) - 1);
-        if (logits == nullptr)
-            throw ModelError("no logits returned for last token");
+        n_past_ += static_cast<std::uint32_t>(n);
 
         const auto n_vocab = static_cast<std::size_t>(vocab_size());
-        return std::vector<float>(logits, logits + n_vocab);
+        std::vector<std::vector<float>> out;
+        for (int32_t i = all_logits ? 0 : n - 1; i < n; ++i) {
+            const float* logits = llama_get_logits_ith(ctx_, i);
+            if (logits == nullptr)
+                throw ModelError("no logits returned at batch position " +
+                                 std::to_string(i));
+            out.emplace_back(logits, logits + n_vocab);
+        }
+        return out;
     }
 
+    std::uint32_t n_past_ = 0;
     llama_model* model_ = nullptr;
     llama_context* ctx_ = nullptr;
     const llama_vocab* vocab_ = nullptr;

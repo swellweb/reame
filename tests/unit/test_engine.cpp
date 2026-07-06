@@ -13,6 +13,7 @@
 
 #include "../mock/llama_mock.hpp"
 #include "sovrano/core/engine.hpp"
+#include "sovrano/speculative/speculative_decoder.hpp"
 
 using sovrano::TokenId;
 using sovrano::test::MockBackend;
@@ -204,6 +205,69 @@ TEST_CASE("generate_stream with echo_prompt emits the prompt first") {
         g);
 
     CHECK(pieces == std::vector<std::string>{"hi", "foo", "bar"});
+}
+
+// ---------------------------------------------------------------------------
+// Speculative integration
+// ---------------------------------------------------------------------------
+
+namespace {
+
+std::vector<float> spec_peak(std::size_t n, std::size_t idx) {
+    std::vector<float> v(n, 0.0f);
+    v[idx] = 10.0f;
+    return v;
+}
+
+// Target/draft pair scripted so speculative greedy emits "ab" then stops:
+// prompt -> {0}; draft proposes {1, 2} (accepted), then EOS.
+void script_spec(MockBackend* target, MockBackend* draft) {
+    for (MockBackend* m : {target, draft}) {
+        m->vocab_size_value = 6;
+        m->eos_token_value = 5;
+        m->tokenize_result = {0};
+    }
+    target->piece_map = {{1, "a"}, {2, "b"}};
+    draft->decode_queue = {spec_peak(6, 1), spec_peak(6, 2), spec_peak(6, 5)};
+    target->decode_batch_queue = {{spec_peak(6, 1), spec_peak(6, 2)},
+                                  {spec_peak(6, 5)}};
+}
+
+}  // namespace
+
+TEST_CASE("engine with a draft backend generates through the speculative decoder") {
+    auto cfg = valid_config();
+    cfg.draft_tokens = 2;
+    auto target = std::make_unique<MockBackend>();
+    auto draft = std::make_unique<MockBackend>();
+    MockBackend* target_raw = target.get();
+    MockBackend* draft_raw = draft.get();
+    script_spec(target_raw, draft_raw);
+
+    SovranoEngine engine(cfg, std::move(target), std::move(draft));
+
+    CHECK(engine.generate("hi", greedy()) == "ab");
+    CHECK_FALSE(target_raw->decode_batch_calls.empty());  // speculative path
+    REQUIRE(engine.speculative_metrics() != nullptr);
+    // Drafted {1, 2} then {EOS}; all three pass verification (the accepted
+    // EOS ends generation and is never emitted).
+    CHECK(engine.speculative_metrics()->total_accepted_tokens == 3);
+    CHECK(engine.speculative_metrics()->generated_tokens == 2);
+}
+
+TEST_CASE("engine ignores the draft backend when use_speculative is off") {
+    auto cfg = valid_config();
+    cfg.use_speculative = false;
+    auto target = std::make_unique<MockBackend>();
+    auto draft = std::make_unique<MockBackend>();
+    MockBackend* target_raw = target.get();
+    script_foobar(target_raw);
+
+    SovranoEngine engine(cfg, std::move(target), std::move(draft));
+
+    CHECK(engine.generate("hi", greedy()) == "foobar");
+    CHECK(target_raw->decode_batch_calls.empty());  // classic path
+    CHECK(engine.speculative_metrics() == nullptr);
 }
 
 // ---------------------------------------------------------------------------

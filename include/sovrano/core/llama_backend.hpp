@@ -37,6 +37,24 @@ public:
     // avoid re-prefilling on every step.
     virtual std::vector<float> decode_append(const std::vector<TokenId>& tokens) = 0;
 
+    // Continues the current sequence with `tokens` and returns the logits
+    // of EVERY position (result[i] predicts the token after tokens[i]).
+    // This is the single batched forward pass speculative verification
+    // needs.
+    virtual std::vector<std::vector<float>> decode_batch(
+        const std::vector<TokenId>& tokens) = 0;
+
+    // Rolls the sequence back to its first `n_tokens` positions (drops the
+    // KV entries of everything after). Used to discard rejected draft
+    // tokens.
+    virtual void truncate_to(std::uint32_t n_tokens) = 0;
+
+    // Clears the sequence entirely (KV cache + position counter).
+    virtual void reset() = 0;
+
+    // Number of positions currently stored in the sequence.
+    virtual std::uint32_t n_past() const = 0;
+
     virtual std::int32_t vocab_size() const = 0;
     virtual std::uint32_t context_length() const = 0;
     virtual TokenId eos_token() const = 0;

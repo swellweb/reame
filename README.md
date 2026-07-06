@@ -46,8 +46,9 @@ ma il caricamento modelli fallisce a runtime con messaggio esplicativo.
 Modelli di test (GGUF, in `models/`, gitignorata):
 
 ```bash
-./scripts/download_models.sh        # TinyLlama 1.1B (~670 MB, per i test)
-./scripts/download_models.sh --7b   # + Qwen2.5 7B (~4.7 GB)
+./scripts/download_models.sh              # TinyLlama 1.1B (~670 MB, per i test)
+./scripts/download_models.sh --spec-pair  # Qwen2.5 1.5B+0.5B (test speculative)
+./scripts/download_models.sh --7b         # + Qwen2.5 7B (~4.7 GB)
 ```
 
 ## Compilazione
@@ -90,8 +91,8 @@ Sovrano/
 │   └── utils/              # Config, Logger
 ├── src/
 │   ├── main.cpp            # entry point
-│   ├── core/               # LlamaModel + backend llama.cpp (reale/stub)
-│   ├── speculative/        # speculative decoding (prossimi step)
+│   ├── core/               # LlamaModel, engine, sampler, backend llama.cpp
+│   ├── speculative/        # draft generator, batch verifier, decoder
 │   ├── memory/             # ottimizzazioni memoria (prossimi step)
 │   ├── server/             # server HTTP (prossimi step)
 │   └── utils/              # config parser, logger

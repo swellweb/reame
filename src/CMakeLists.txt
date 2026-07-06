@@ -14,6 +14,10 @@ add_library(sovrano_core STATIC
     core/model.cpp
     core/sampler.cpp
     core/engine.cpp
+    speculative/acceptance.cpp
+    speculative/draft_generator.cpp
+    speculative/batch_verifier.cpp
+    speculative/speculative_decoder.cpp
 )
 target_include_directories(sovrano_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(sovrano_core

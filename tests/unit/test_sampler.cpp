@@ -1,12 +1,16 @@
 // Isolated tests for sovrano::core::Sampler. Pure unit: hand-built logits,
 // expected outcomes derived from the sampling rules, no llama.cpp.
 
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <cmath>
 #include <set>
 #include <vector>
 
 #include "sovrano/core/sampler.hpp"
+
+using Catch::Matchers::WithinAbs;
 
 using sovrano::TokenId;
 using sovrano::core::EngineError;
@@ -113,6 +117,58 @@ TEST_CASE("same seed reproduces the same sequence of draws") {
     Sampler a(cfg), b(cfg);
     for (int i = 0; i < 100; ++i)
         CHECK(a.sample(logits, {}) == b.sample(logits, {}));
+}
+
+TEST_CASE("distribution: softmax with temperature 1 and full nucleus") {
+    GenerationConfig cfg;
+    cfg.temperature = 1.0f;
+    cfg.top_p = 1.0f;
+    cfg.repeat_penalty = 1.0f;
+    Sampler s(cfg);
+
+    // softmax({ln 2, 0, 0}) = {2, 1, 1} / 4 = {0.5, 0.25, 0.25}.
+    const auto d = s.distribution({std::log(2.0f), 0.0f, 0.0f}, {});
+
+    REQUIRE(d.size() == 3);
+    CHECK_THAT(d[0], WithinAbs(0.50, 1e-5));
+    CHECK_THAT(d[1], WithinAbs(0.25, 1e-5));
+    CHECK_THAT(d[2], WithinAbs(0.25, 1e-5));
+}
+
+TEST_CASE("distribution: top_p zeroes the tail and renormalizes") {
+    GenerationConfig cfg;
+    cfg.temperature = 1.0f;
+    cfg.top_p = 0.7f;
+    cfg.repeat_penalty = 1.0f;
+    Sampler s(cfg);
+
+    // Base probs {0.5, 0.25, 0.25}; sorted cum: 0.5 < 0.7, then 0.75 >= 0.7
+    // -> keep two tokens, renormalize to {2/3, 1/3, 0}.
+    const auto d = s.distribution({std::log(2.0f), 0.0f, 0.0f}, {});
+
+    CHECK_THAT(d[0], WithinAbs(2.0 / 3.0, 1e-5));
+    CHECK_THAT(d[1] + d[2], WithinAbs(1.0 / 3.0, 1e-5));
+    CHECK((d[1] == 0.0f || d[2] == 0.0f));  // exactly one of the ties survives
+}
+
+TEST_CASE("distribution: greedy is a one-hot at the argmax") {
+    Sampler s(greedy());
+
+    const auto d = s.distribution({0.1f, 3.0f, 0.5f}, {});
+
+    REQUIRE(d.size() == 3);
+    CHECK(d[0] == 0.0f);
+    CHECK(d[1] == 1.0f);
+    CHECK(d[2] == 0.0f);
+}
+
+TEST_CASE("draw from a one-hot always returns that token") {
+    GenerationConfig cfg;
+    cfg.temperature = 1.0f;
+    Sampler s(cfg);
+
+    for (int i = 0; i < 20; ++i)
+        CHECK(s.draw({0.0f, 0.0f, 1.0f, 0.0f}) == 2);
 }
 
 TEST_CASE("stochastic draws stay within the vocabulary") {

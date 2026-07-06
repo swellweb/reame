@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <deque>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,13 @@ public:
     // back to decode_result when empty. Lets a test drive a whole
     // generation step by step.
     std::deque<std::vector<float>> decode_queue;
+    // Scripted per-position logits for decode_batch. When empty, the batch
+    // result is synthesized from decode_queue/decode_result (one entry per
+    // input token).
+    std::deque<std::vector<std::vector<float>>> decode_batch_queue;
+    // When set, every decode/decode_append/decode_batch throws (fallback
+    // tests).
+    bool fail_decodes = false;
     // Per-token piece for token_piece (generation streaming); falls back
     // to detokenize_result when the token is not mapped.
     std::map<TokenId, std::string> piece_map;
@@ -38,6 +46,9 @@ public:
     std::vector<TokenId> token_piece_calls;
     std::vector<std::vector<TokenId>> decode_calls;
     std::vector<std::vector<TokenId>> decode_append_calls;
+    std::vector<std::vector<TokenId>> decode_batch_calls;
+    std::vector<std::uint32_t> truncate_calls;
+    int reset_calls = 0;
 
     std::vector<TokenId> tokenize(const std::string& text,
                                   bool add_special) override {
@@ -57,26 +68,64 @@ public:
     }
 
     std::vector<float> decode(const std::vector<TokenId>& tokens) override {
+        maybe_fail();
         decode_calls.push_back(tokens);
+        n_past_value = static_cast<std::uint32_t>(tokens.size());
         return next_logits();
     }
 
     std::vector<float> decode_append(const std::vector<TokenId>& tokens) override {
+        maybe_fail();
         decode_append_calls.push_back(tokens);
+        n_past_value += static_cast<std::uint32_t>(tokens.size());
         return next_logits();
     }
+
+    std::vector<std::vector<float>> decode_batch(
+        const std::vector<TokenId>& tokens) override {
+        maybe_fail();
+        decode_batch_calls.push_back(tokens);
+        n_past_value += static_cast<std::uint32_t>(tokens.size());
+        if (!decode_batch_queue.empty()) {
+            auto v = std::move(decode_batch_queue.front());
+            decode_batch_queue.pop_front();
+            return v;
+        }
+        std::vector<std::vector<float>> out;
+        for (std::size_t i = 0; i < tokens.size(); ++i)
+            out.push_back(next_logits());
+        return out;
+    }
+
+    void truncate_to(std::uint32_t n_tokens) override {
+        truncate_calls.push_back(n_tokens);
+        n_past_value = n_tokens;
+    }
+
+    void reset() override {
+        ++reset_calls;
+        n_past_value = 0;
+    }
+
+    std::uint32_t n_past() const override { return n_past_value; }
 
     std::int32_t vocab_size() const override { return vocab_size_value; }
     std::uint32_t context_length() const override { return context_length_value; }
     TokenId eos_token() const override { return eos_token_value; }
 
 private:
+    void maybe_fail() {
+        if (fail_decodes) throw std::runtime_error("mock decode failure");
+    }
+
     std::vector<float> next_logits() {
         if (decode_queue.empty()) return decode_result;
         auto v = std::move(decode_queue.front());
         decode_queue.pop_front();
         return v;
     }
+
+    std::uint32_t n_past_value = 0;
 };
 
 }  // namespace sovrano::test

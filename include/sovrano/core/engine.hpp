@@ -8,6 +8,10 @@
 
 #include "sovrano/core/llama_backend.hpp"
 
+namespace sovrano::speculative {
+struct SpeculativeMetrics;
+}
+
 namespace sovrano::core {
 
 class EngineError : public std::runtime_error {
@@ -32,19 +36,29 @@ class SovranoEngine {
 public:
     struct Config {
         std::string model_path;
-        std::string draft_model_path;  // unused until Step 4
+        // When set (and use_speculative), a draft model is loaded and
+        // generation goes through the speculative decoder. Both models
+        // share n_threads (they run strictly in turn, never concurrently,
+        // so the CPU pool is effectively shared).
+        std::string draft_model_path;
         int n_ctx = 8192;
         int n_threads = 18;
         bool use_mmap = true;
         bool use_mlock = false;
+        bool use_speculative = true;
+        int draft_tokens = 16;  // starting speculative draft length
         bool verbose = false;
     };
 
-    // Production: loads the model through the real llama.cpp backend.
+    // Production: loads the model(s) through the real llama.cpp backend.
     explicit SovranoEngine(const Config& config);
 
-    // Test seam: inject a backend (mock). Still validates `config`.
+    // Test seam: inject a target backend (mock). Still validates `config`.
     SovranoEngine(const Config& config, std::unique_ptr<LlamaBackend> backend);
+
+    // Test seam: inject target + draft backends (speculative decoding).
+    SovranoEngine(const Config& config, std::unique_ptr<LlamaBackend> backend,
+                  std::unique_ptr<LlamaBackend> draft_backend);
 
     ~SovranoEngine();
     SovranoEngine(SovranoEngine&&) noexcept;
@@ -71,6 +85,9 @@ public:
 
     int context_size() const;
     int vocab_size() const;
+
+    // Non-null only when the speculative decoder is in use.
+    const speculative::SpeculativeMetrics* speculative_metrics() const;
 
 private:
     struct Impl;
