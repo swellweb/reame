@@ -93,6 +93,9 @@ public:
 
     int context_size() const;
     int vocab_size() const;
+    // Token count of `text` under the model's tokenizer (for API usage
+    // accounting).
+    int count_tokens(const std::string& text) const;
 
     // Non-null only when the speculative decoder is in use.
     const speculative::SpeculativeMetrics* speculative_metrics() const;

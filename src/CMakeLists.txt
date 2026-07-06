@@ -48,14 +48,23 @@ else()
     target_sources(sovrano_core PRIVATE core/llama_backend_stub.cpp)
 endif()
 
+if(SOVRANO_BUILD_SERVER)
+    add_library(sovrano_server STATIC
+        server/http_parser.cpp
+        server/api_handler.cpp
+        server/http_server.cpp
+    )
+    target_include_directories(sovrano_server PUBLIC ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(sovrano_server
+        PUBLIC sovrano_core nlohmann_json::nlohmann_json
+        PRIVATE sovrano_flags Boost::headers Threads::Threads
+    )
+    target_compile_definitions(sovrano_server PUBLIC SOVRANO_WITH_SERVER=1)
+endif()
+
 add_executable(sovrano main.cpp)
 target_link_libraries(sovrano PRIVATE sovrano_core sovrano_utils sovrano_flags)
 
 if(SOVRANO_BUILD_SERVER)
-    target_link_libraries(sovrano PRIVATE
-        Boost::system
-        nlohmann_json::nlohmann_json
-        PkgConfig::ZSTD
-    )
-    target_compile_definitions(sovrano PRIVATE SOVRANO_WITH_SERVER=1)
+    target_link_libraries(sovrano PRIVATE sovrano_server)
 endif()

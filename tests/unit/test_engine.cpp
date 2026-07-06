@@ -85,6 +85,15 @@ TEST_CASE("engine constructor rejects null backend") {
     CHECK_THROWS_AS(SovranoEngine(valid_config(), nullptr), EngineError);
 }
 
+TEST_CASE("count_tokens returns the tokenizer's token count") {
+    auto [engine, mock] = make_engine();
+    mock->tokenize_result = {1, 2, 3};
+
+    CHECK(engine.count_tokens("some text") == 3);
+    REQUIRE(mock->tokenize_calls.size() == 1);
+    CHECK(mock->tokenize_calls[0].first == "some text");
+}
+
 TEST_CASE("context_size and vocab_size come from the backend") {
     auto [engine, mock] = make_engine();
     mock->vocab_size_value = 5;

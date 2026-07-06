@@ -1,15 +1,24 @@
 // Sovrano entry point. For this first step it only loads the configuration
 // and sets up logging; engine/server wiring lands in later steps.
 
+#include <csignal>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "sovrano/core/engine.hpp"
 #include "sovrano/speculative/speculative_decoder.hpp"
 #include "sovrano/utils/config.hpp"
 #include "sovrano/utils/logger.hpp"
+
+#ifdef SOVRANO_WITH_SERVER
+#include <condition_variable>
+#include <mutex>
+
+#include "sovrano/server/http_server.hpp"
+#endif
 
 namespace {
 
@@ -18,8 +27,22 @@ constexpr const char* kVersion = "0.1.0";
 void print_usage(const char* argv0) {
     std::cerr << "Usage: " << argv0
               << " [--config <path>] [--prompt <text>] [--max-tokens <n>]"
-                 " [--help] [--version]\n";
+                 " [--serve] [--help] [--version]\n";
 }
+
+#ifdef SOVRANO_WITH_SERVER
+std::condition_variable g_shutdown_cv;
+std::mutex g_shutdown_mutex;
+bool g_shutdown = false;
+
+void request_shutdown(int) {
+    {
+        std::lock_guard<std::mutex> lock(g_shutdown_mutex);
+        g_shutdown = true;
+    }
+    g_shutdown_cv.notify_all();
+}
+#endif
 
 }  // namespace
 
@@ -27,12 +50,17 @@ int main(int argc, char** argv) {
     std::string config_path = "config/sovrano.conf";
     std::string prompt;
     int max_tokens = 128;
+    bool serve = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--help" || arg == "-h") {
             print_usage(argv[0]);
             return EXIT_SUCCESS;
+        }
+        if (arg == "--serve" || arg == "-s") {
+            serve = true;
+            continue;
         }
         if (arg == "--version" || arg == "-v") {
             std::cout << "sovrano " << kVersion << "\n";
@@ -73,9 +101,8 @@ int main(int argc, char** argv) {
         log.info("server: disabled in this build");
 #endif
 
-        if (prompt.empty()) {
-            log.info("no --prompt given; exiting (HTTP server arrives in a "
-                     "later step)");
+        if (prompt.empty() && !serve) {
+            log.info("nothing to do: pass --prompt <text> or --serve");
             return EXIT_SUCCESS;
         }
 
@@ -97,22 +124,63 @@ int main(int argc, char** argv) {
         engine_cfg.cache_compress = cfg.get_bool("cache.compress", true);
 
         log.info("loading model...");
-        sovrano::core::SovranoEngine engine(engine_cfg);
-        log.info("model loaded (vocab " + std::to_string(engine.vocab_size()) +
-                 ", ctx " + std::to_string(engine.context_size()) + ")");
-        if (engine.speculative_metrics() != nullptr)
+        auto engine =
+            std::make_shared<sovrano::core::SovranoEngine>(engine_cfg);
+        log.info("model loaded (vocab " +
+                 std::to_string(engine->vocab_size()) + ", ctx " +
+                 std::to_string(engine->context_size()) + ")");
+        if (engine->speculative_metrics() != nullptr)
             log.info("speculative decoding: on (draft " +
                      engine_cfg.draft_model_path + ")");
 
+        if (serve) {
+#ifdef SOVRANO_WITH_SERVER
+            sovrano::server::HttpServer::Config sc;
+            sc.host = cfg.get_string("server.host", "0.0.0.0");
+            sc.port = static_cast<int>(cfg.get_int("server.port", 8080));
+            sc.threads =
+                static_cast<int>(cfg.get_int("server.threads", 2));
+            sc.max_concurrent_requests = static_cast<int>(
+                cfg.get_int("server.max_concurrent_requests", 10));
+            sc.timeout_seconds = static_cast<int>(
+                cfg.get_int("server.timeout_seconds", 300));
+            sc.max_request_size_mb = static_cast<std::size_t>(
+                cfg.get_int("server.max_request_size_mb", 10));
+            sc.enable_cors = cfg.get_bool("server.enable_cors", true);
+            sc.enable_metrics = cfg.get_bool("server.enable_metrics", true);
+            sc.enable_request_logging =
+                cfg.get_bool("server.enable_request_logging", true);
+            sc.api_key = cfg.get_string("server.api_key", "");
+            sc.model_id = cfg.get_string("server.model_id", "sovrano");
+
+            sovrano::server::HttpServer server(sc, engine);
+            server.start();
+
+            std::signal(SIGINT, request_shutdown);
+            std::signal(SIGTERM, request_shutdown);
+            {
+                std::unique_lock<std::mutex> lock(g_shutdown_mutex);
+                g_shutdown_cv.wait(lock, [] { return g_shutdown; });
+            }
+            log.info("shutting down");
+            server.stop();
+            return EXIT_SUCCESS;
+#else
+            std::cerr << "error: sovrano was built without server support "
+                         "(Boost/nlohmann-json missing at configure time)\n";
+            return EXIT_FAILURE;
+#endif
+        }
+
         sovrano::core::GenerationConfig gen;
         gen.max_tokens = max_tokens;
-        engine.generate_stream(prompt, [](const std::string& piece) {
+        engine->generate_stream(prompt, [](const std::string& piece) {
             std::cout << piece << std::flush;
             return true;
         }, gen);
         std::cout << "\n";
 
-        if (const auto* m = engine.speculative_metrics()) {
+        if (const auto* m = engine->speculative_metrics()) {
             log.info("speculative metrics: acceptance " +
                      std::to_string(m->acceptance_rate()) + ", overall " +
                      std::to_string(m->overall_speed()) + " tok/s (draft " +

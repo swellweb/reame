@@ -74,7 +74,30 @@ ctest --test-dir build --output-on-failure
 ## Esecuzione
 
 ```bash
-./build/src/sovrano --config config/sovrano.conf
+# Generazione one-shot da CLI
+./build/src/sovrano --config config/sovrano.conf --prompt "Ciao" --max-tokens 64
+
+# Server HTTP (API REST compatibile OpenAI)
+./build/src/sovrano --config config/sovrano.conf --serve
+```
+
+### API
+
+| Endpoint | Descrizione |
+|---|---|
+| `GET /health` | liveness (senza auth) |
+| `GET /v1/models` | modello configurato |
+| `POST /v1/completions` | completion (SSE con `"stream": true`) |
+| `POST /v1/chat/completions` | chat completion (SSE con `"stream": true`) |
+| `POST /v1/sessions` · `.../save` · `.../load` · `DELETE .../{id}` | sessioni KV |
+| `GET /metrics` | contatori server + metriche speculative |
+
+Con `server.api_key` impostata serve `Authorization: Bearer <key>` (tranne `/health`).
+
+```bash
+curl http://localhost:8080/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "La capitale d'\''Italia è", "max_tokens": 16}'
 ```
 
 Configurazione: vedi [config/sovrano.conf](config/sovrano.conf) (formato INI,
@@ -96,7 +119,7 @@ Sovrano/
 │   ├── speculative/        # draft generator, batch verifier, decoder
 │   ├── cache/              # KV-cache su NVMe: serializer, store LRU, manager
 │   ├── memory/             # ottimizzazioni memoria (prossimi step)
-│   ├── server/             # server HTTP (prossimi step)
+│   ├── server/             # parser HTTP, API handler, server Asio
 │   └── utils/              # config parser, logger
 ├── tests/
 │   ├── unit/               # test isolati (Catch2)

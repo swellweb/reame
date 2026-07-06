@@ -245,6 +245,11 @@ int SovranoEngine::vocab_size() const {
     return pimpl_->backend->vocab_size();
 }
 
+int SovranoEngine::count_tokens(const std::string& text) const {
+    return static_cast<int>(
+        pimpl_->backend->tokenize(text, /*add_special=*/true).size());
+}
+
 const speculative::SpeculativeMetrics* SovranoEngine::speculative_metrics()
     const {
     return pimpl_->decoder == nullptr ? nullptr : &pimpl_->decoder->metrics();

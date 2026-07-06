@@ -17,6 +17,15 @@ add_executable(sovrano_tests
     unit/test_speculative.cpp
     unit/test_cache.cpp
 )
+
+if(SOVRANO_BUILD_SERVER)
+    target_sources(sovrano_tests PRIVATE
+        unit/test_http_parser.cpp
+        unit/test_api_handler.cpp
+        unit/test_http_server.cpp
+    )
+    target_link_libraries(sovrano_tests PRIVATE sovrano_server)
+endif()
 target_link_libraries(sovrano_tests PRIVATE
     sovrano_core
     sovrano_utils

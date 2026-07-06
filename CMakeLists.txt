@@ -67,13 +67,14 @@ if(NOT ZSTD_FOUND)
 endif()
 
 if(SOVRANO_BUILD_SERVER)
-    find_package(Boost 1.74 QUIET COMPONENTS system)
+    # Boost.Asio/System are header-only in modern Boost: headers suffice.
+    find_package(Boost 1.74 QUIET CONFIG)
     find_package(nlohmann_json 3.10 QUIET)
 
-    if(NOT Boost_FOUND OR NOT nlohmann_json_FOUND OR NOT ZSTD_FOUND)
+    if(NOT Boost_FOUND OR NOT nlohmann_json_FOUND)
         message(WARNING
             "Server dependencies missing (Boost: ${Boost_FOUND}, "
-            "nlohmann_json: ${nlohmann_json_FOUND}, zstd: ${ZSTD_FOUND}). "
+            "nlohmann_json: ${nlohmann_json_FOUND}). "
             "Server target disabled for this build.")
         set(SOVRANO_BUILD_SERVER OFF)
     endif()
