@@ -458,7 +458,14 @@ TEST_CASE("[integration] speculative equals plain greedy with a real model",
     auto target = sovrano::make_llama_backend(p);
     auto draft = sovrano::make_llama_backend(p);  // draft == target model
 
-    const auto prompt = target->tokenize("The capital of Italy is", true);
+    // Predictable continuation on purpose: single-token and batched CPU
+    // kernels differ numerically (x86 repack especially), so a flat
+    // distribution flips argmax on near-ties and acceptance drops even
+    // with an identical model. Large argmax gaps make the check about the
+    // MECHANISM, not about kernel rounding.
+    const auto prompt = target->tokenize(
+        "Count slowly: one, two, three, four, five, six, seven, eight,",
+        true);
 
     SpeculativeDecoder::Config cfg;
     cfg.draft_tokens = 4;
