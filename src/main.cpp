@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include "sovrano/cache/cache_manager.hpp"
 #include "sovrano/core/engine.hpp"
 #include "sovrano/speculative/speculative_decoder.hpp"
 #include "sovrano/utils/config.hpp"
@@ -126,6 +127,8 @@ int main(int argc, char** argv) {
         engine_cfg.cache_max_mb = static_cast<std::uint64_t>(
             cfg.get_int("cache.max_size_mb", 512));
         engine_cfg.cache_compress = cfg.get_bool("cache.compress", true);
+        engine_cfg.cache_block_tokens =
+            static_cast<int>(cfg.get_int("cache.block_tokens", 256));
 
         log.info("loading model...");
         auto engine =
@@ -184,6 +187,11 @@ int main(int argc, char** argv) {
         }, gen);
         std::cout << "\n";
 
+        if (const auto* c = engine->cache_stats()) {
+            log.info("cache: " + std::to_string(c->hits) + " hits, " +
+                     std::to_string(c->misses) + " misses, " +
+                     std::to_string(c->stores) + " stores");
+        }
         if (const auto* m = engine->speculative_metrics()) {
             log.info("speculative metrics: acceptance " +
                      std::to_string(m->acceptance_rate()) + ", overall " +

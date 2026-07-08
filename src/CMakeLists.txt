@@ -22,6 +22,7 @@ add_library(sovrano_core STATIC
     cache/cache_serializer.cpp
     cache/disk_cache_store.cpp
     cache/cache_manager.cpp
+    cache/prefix_cache.cpp
 )
 target_include_directories(sovrano_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(sovrano_core

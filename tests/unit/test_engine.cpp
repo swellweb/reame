@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "../mock/llama_mock.hpp"
+#include "sovrano/cache/cache_manager.hpp"
 #include "sovrano/core/engine.hpp"
 #include "sovrano/speculative/speculative_decoder.hpp"
 
@@ -442,6 +443,30 @@ TEST_CASE("sessions: with a cache dir, load restores the snapshot instead of re-
     CHECK(mock->set_state_calls[0].first == std::vector<char>{'K', 'V'});
     CHECK(mock->set_state_calls[0].second == 3);
     CHECK(mock->decode_calls.empty());
+}
+
+TEST_CASE("engine exposes cache stats when the cache is enabled") {
+    CacheTempDir dir;
+    auto cfg = valid_config();
+    cfg.cache_dir = dir.path.string();
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    script_cached(mock, true);
+
+    SovranoEngine engine(cfg, std::move(backend));
+    CHECK(engine.cache_stats() != nullptr);
+
+    engine.generate("hi", greedy());
+    CHECK(engine.cache_stats()->stores >= 1);  // prefix snapshotted
+}
+
+TEST_CASE("without a cache dir cache stats are null and prefill unchanged") {
+    auto [engine, mock] = make_engine();
+    script_foobar(mock);
+
+    CHECK(engine.cache_stats() == nullptr);
+    CHECK(engine.generate("hi", greedy()) == "foobar");
 }
 
 TEST_CASE("without a cache dir the classic prefill path is unchanged") {

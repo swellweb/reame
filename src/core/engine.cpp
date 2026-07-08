@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "sovrano/cache/cache_manager.hpp"
+#include "sovrano/cache/prefix_cache.hpp"
 #include "sovrano/core/model.hpp"
 #include "sovrano/core/sampler.hpp"
 #include "sovrano/speculative/speculative_decoder.hpp"
@@ -41,6 +42,7 @@ struct SovranoEngine::Impl {
     std::unique_ptr<LlamaBackend> draft_backend;
     std::unique_ptr<speculative::SpeculativeDecoder> decoder;
     std::unique_ptr<cache::CacheManager> cache;
+    std::unique_ptr<cache::PrefixCache> prefix_cache;
     std::string model_tag;  // discriminates cache entries across models
     // Tokens currently represented in the KV cache (prompt + generated of
     // the last generate/load_session).
@@ -84,6 +86,8 @@ SovranoEngine::SovranoEngine(const Config& config,
         cc.max_bytes = config.cache_max_mb * 1024ull * 1024ull;
         cc.compress = config.cache_compress;
         pimpl_->cache = std::make_unique<cache::CacheManager>(cc);
+        pimpl_->prefix_cache = std::make_unique<cache::PrefixCache>(
+            *pimpl_->cache, pimpl_->model_tag, config.cache_block_tokens);
     }
     if (config.use_speculative &&
         (draft_backend != nullptr || config.use_prompt_lookup)) {
@@ -153,23 +157,13 @@ void SovranoEngine::generate_stream(
 
     // Prefill; from here `tokens` mirrors the KV cache content.
     std::vector<float> logits;
-    if (pimpl_->cache != nullptr) {
-        // Split prefill: the snapshot covers the prompt minus its last
-        // token; that token is always decoded fresh, so the sampling
-        // logits come from a real forward pass in both cold and warm runs.
+    if (pimpl_->prefix_cache != nullptr) {
+        // Shared-prefix prefill: the cache covers the prompt minus its
+        // last token (block-wise snapshots, longest cached prefix reused —
+        // across different prompts too); the last token is always decoded
+        // fresh so the sampling logits come from a real forward pass.
         const std::vector<TokenId> prefix(tokens.begin(), tokens.end() - 1);
-        if (prefix.empty()) {
-            backend.reset();
-        } else {
-            const auto key =
-                cache::CacheManager::make_key(pimpl_->model_tag, prefix);
-            if (!pimpl_->cache->load_state(key, backend)) {
-                backend.reset();
-                backend.decode_append(prefix);
-                pimpl_->cache->store_state(
-                    key, backend, static_cast<std::uint32_t>(prefix.size()));
-            }
-        }
+        pimpl_->prefix_cache->prefill(prefix, backend);
         logits = backend.decode_append({tokens.back()});
     } else {
         logits = backend.decode(tokens);
@@ -257,6 +251,10 @@ int SovranoEngine::count_tokens(const std::string& text) const {
 const speculative::SpeculativeMetrics* SovranoEngine::speculative_metrics()
     const {
     return pimpl_->decoder == nullptr ? nullptr : &pimpl_->decoder->metrics();
+}
+
+const cache::CacheStats* SovranoEngine::cache_stats() const {
+    return pimpl_->cache == nullptr ? nullptr : &pimpl_->cache->stats();
 }
 
 }  // namespace sovrano::core

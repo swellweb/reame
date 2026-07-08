@@ -12,6 +12,10 @@ namespace sovrano::speculative {
 struct SpeculativeMetrics;
 }
 
+namespace sovrano::cache {
+struct CacheStats;
+}
+
 namespace sovrano::core {
 
 class EngineError : public std::runtime_error {
@@ -58,6 +62,9 @@ public:
         std::string cache_dir;
         std::uint64_t cache_max_mb = 512;  // 0 = unlimited
         bool cache_compress = true;
+        // Prefix snapshots are taken every this many tokens: smaller =
+        // more cross-prompt hits, more disk writes.
+        int cache_block_tokens = 256;
         bool verbose = false;
     };
 
@@ -102,6 +109,9 @@ public:
 
     // Non-null only when the speculative decoder is in use.
     const speculative::SpeculativeMetrics* speculative_metrics() const;
+
+    // Non-null only when the disk cache is enabled (cache_dir set).
+    const cache::CacheStats* cache_stats() const;
 
 private:
     struct Impl;
