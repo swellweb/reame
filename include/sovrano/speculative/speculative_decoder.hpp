@@ -48,9 +48,18 @@ struct SpeculativeMetrics {
 class SpeculativeDecoder {
 public:
     struct Config {
+        // ModelDraft: a second, smaller model proposes tokens (requires a
+        // draft backend). PromptLookup: proposals come from n-gram matches
+        // in the tokens already seen — no second model, draft cost zero;
+        // shines when the output quotes or rephrases the input.
+        enum class Mode { ModelDraft, PromptLookup };
+        Mode mode = Mode::ModelDraft;
+
         int draft_tokens = 16;       // starting draft length
         int min_draft_tokens = 2;    // adaptive lower bound
         int max_draft_tokens = 32;   // adaptive upper bound
+        int lookup_max_ngram = 3;    // PromptLookup pattern lengths
+        int lookup_min_ngram = 1;
         bool use_speculative = true;
         // Auto-disable: if after at least `disable_after_drafted` drafted
         // tokens the acceptance rate is below `disable_below_acceptance`,

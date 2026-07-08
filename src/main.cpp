@@ -114,6 +114,10 @@ int main(int argc, char** argv) {
         engine_cfg.use_mmap = cfg.get_bool("memory.use_mmap", true);
         engine_cfg.use_mlock = cfg.get_bool("memory.use_mlock", false);
         engine_cfg.use_speculative = cfg.get_bool("speculative.enabled", true);
+        // mode: model (default, needs draft_model_path) | lookup (n-gram
+        // proposals from the prompt itself, no second model)
+        engine_cfg.use_prompt_lookup =
+            cfg.get_string("speculative.mode", "model") == "lookup";
         engine_cfg.draft_model_path =
             cfg.get_string("speculative.draft_model_path", "");
         engine_cfg.draft_tokens =

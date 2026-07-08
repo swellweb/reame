@@ -265,6 +265,31 @@ TEST_CASE("engine with a draft backend generates through the speculative decoder
     CHECK(engine.speculative_metrics()->generated_tokens == 2);
 }
 
+TEST_CASE("engine with prompt lookup speculates without a draft backend") {
+    auto cfg = valid_config();
+    cfg.use_prompt_lookup = true;
+    cfg.draft_tokens = 2;
+
+    auto target = std::make_unique<MockBackend>();
+    MockBackend* mock = target.get();
+    mock->vocab_size_value = 6;
+    mock->eos_token_value = 5;
+    // Prompt repeats: {1,2,1,2} -> lookup proposes {1,2}; target accepts
+    // then wants EOS.
+    mock->tokenize_result = {1, 2, 1, 2};
+    mock->piece_map = {{1, "x"}, {2, "y"}};
+    mock->decode_queue = {spec_peak(6, 0)};  // prefill filler
+    mock->decode_batch_queue = {{spec_peak(6, 1), spec_peak(6, 2)},
+                                {spec_peak(6, 5)}};
+
+    SovranoEngine engine(cfg, std::move(target));
+
+    CHECK(engine.generate("rep", greedy()) == "xy");
+    CHECK_FALSE(mock->decode_batch_calls.empty());  // speculating...
+    REQUIRE(engine.speculative_metrics() != nullptr);
+    CHECK(engine.speculative_metrics()->total_accepted_tokens >= 2);
+}
+
 TEST_CASE("engine ignores the draft backend when use_speculative is off") {
     auto cfg = valid_config();
     cfg.use_speculative = false;

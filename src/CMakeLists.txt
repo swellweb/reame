@@ -18,6 +18,7 @@ add_library(sovrano_core STATIC
     speculative/draft_generator.cpp
     speculative/batch_verifier.cpp
     speculative/speculative_decoder.cpp
+    speculative/prompt_lookup.cpp
     cache/cache_serializer.cpp
     cache/disk_cache_store.cpp
     cache/cache_manager.cpp

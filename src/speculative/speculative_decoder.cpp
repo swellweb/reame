@@ -8,6 +8,7 @@
 #include "sovrano/core/sampler.hpp"
 #include "sovrano/speculative/batch_verifier.hpp"
 #include "sovrano/speculative/draft_generator.hpp"
+#include "sovrano/speculative/prompt_lookup.hpp"
 
 namespace sovrano::speculative {
 
@@ -28,7 +29,9 @@ SpeculativeDecoder::SpeculativeDecoder(LlamaBackend& target,
       cfg_(cfg),
       current_draft_tokens_(std::clamp(cfg.draft_tokens, cfg.min_draft_tokens,
                                        cfg.max_draft_tokens)),
-      speculative_active_(draft != nullptr && cfg.use_speculative) {
+      speculative_active_(
+          cfg.use_speculative &&
+          (cfg.mode == Config::Mode::PromptLookup || draft != nullptr)) {
     if (draft != nullptr) {
         // Same tokenizer required, but model families pad the embedding
         // table differently (Qwen2.5-7B: 152064, 0.5B: 151936). Tolerate
@@ -93,7 +96,8 @@ void SpeculativeDecoder::generate_stream(
                 {history.begin(), history.begin() + static_cast<long>(base)});
         metrics_.target_time_s += seconds_since(t0);
     }
-    if (speculative_active_) {
+    const bool model_mode = cfg_.mode == Config::Mode::ModelDraft;
+    if (speculative_active_ && model_mode) {
         try {
             const auto t0 = Clock::now();
             draft_->reset();
@@ -107,8 +111,11 @@ void SpeculativeDecoder::generate_stream(
         }
     }
 
-    DraftGenerator draft_gen(speculative_active_ ? *draft_ : target_,
-                             {cfg_.draft_tokens});
+    DraftGenerator draft_gen(
+        (model_mode && draft_ != nullptr) ? *draft_ : target_,
+        {cfg_.draft_tokens});
+    const PromptLookup lookup(
+        {cfg_.lookup_max_ngram, cfg_.lookup_min_ngram});
     BatchVerifier verifier(target_);
 
     std::size_t emitted = 0;
@@ -116,31 +123,52 @@ void SpeculativeDecoder::generate_stream(
         std::max(gen_config.max_tokens, 0));
 
     const TokenId draft_vocab =
-        draft_ != nullptr ? draft_->vocab_size() : 0;
+        (model_mode && draft_ != nullptr) ? draft_->vocab_size()
+                                          : target_.vocab_size();
+    bool lookup_skip = false;  // this iteration found no n-gram match
 
     while (emitted < max_tokens && history.size() < n_ctx) {
         // A token beyond the draft's (smaller, padding-trimmed) vocabulary
         // cannot be fed back to the draft model: finish the generation on
-        // the plain path.
-        if (speculative_active_ && cur >= draft_vocab)
+        // the plain path. (Lookup proposals are history tokens: always in
+        // the target vocabulary.)
+        if (speculative_active_ && model_mode && cur >= draft_vocab)
             speculative_active_ = false;
 
-        if (speculative_active_) {
+        if (speculative_active_ && !lookup_skip) {
             // ---- Draft rollout ----
             const int room = static_cast<int>(n_ctx - history.size());
             const int n_draft = std::min(current_draft_tokens_, room);
             DraftResult draft;
             const auto d0 = Clock::now();
-            try {
-                draft = draft_gen.generate_draft(cur, history, sampler, n_draft);
-            } catch (const std::exception&) {
-                metrics_.draft_time_s += seconds_since(d0);
-                speculative_active_ = false;  // fall back, state untouched
-                continue;
+            if (model_mode) {
+                try {
+                    draft =
+                        draft_gen.generate_draft(cur, history, sampler, n_draft);
+                } catch (const std::exception&) {
+                    metrics_.draft_time_s += seconds_since(d0);
+                    speculative_active_ = false;  // fall back, state untouched
+                    continue;
+                }
+            } else {
+                // Prompt lookup: zero-cost proposals from the history. No
+                // match is fine — take one plain step and try again.
+                draft.tokens = lookup.find_draft(history, n_draft);
+                const auto n_vocab =
+                    static_cast<std::size_t>(target_.vocab_size());
+                for (const TokenId t : draft.tokens) {
+                    std::vector<float> one_hot(n_vocab, 0.0f);
+                    one_hot[static_cast<std::size_t>(t)] = 1.0f;
+                    draft.probs.push_back(std::move(one_hot));
+                }
             }
             metrics_.draft_time_s += seconds_since(d0);
             if (draft.tokens.empty()) {
-                speculative_active_ = false;
+                if (model_mode) {
+                    speculative_active_ = false;
+                } else {
+                    lookup_skip = true;  // plain step below, stay armed
+                }
                 continue;
             }
 
@@ -162,7 +190,7 @@ void SpeculativeDecoder::generate_stream(
                 const auto keep = static_cast<std::uint32_t>(
                     base + 1 + vr.accepted_tokens.size());
                 target_.truncate_to(keep);
-                draft_->truncate_to(keep);
+                if (model_mode && draft_ != nullptr) draft_->truncate_to(keep);
                 base = keep;
             } else {
                 base += draft.tokens.size();
@@ -192,6 +220,7 @@ void SpeculativeDecoder::generate_stream(
             maybe_auto_disable();
         } else {
             // ---- Plain sequential decoding ----
+            lookup_skip = false;  // retry the lookup on the next iteration
             const auto t0 = Clock::now();
             std::vector<float> logits;
             logits = target_.decode_append({cur});

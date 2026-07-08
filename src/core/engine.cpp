@@ -85,10 +85,14 @@ SovranoEngine::SovranoEngine(const Config& config,
         cc.compress = config.cache_compress;
         pimpl_->cache = std::make_unique<cache::CacheManager>(cc);
     }
-    if (draft_backend != nullptr && config.use_speculative) {
+    if (config.use_speculative &&
+        (draft_backend != nullptr || config.use_prompt_lookup)) {
         pimpl_->draft_backend = std::move(draft_backend);
         speculative::SpeculativeDecoder::Config dc;
         dc.draft_tokens = config.draft_tokens;
+        if (config.use_prompt_lookup)
+            dc.mode =
+                speculative::SpeculativeDecoder::Config::Mode::PromptLookup;
         pimpl_->decoder = std::make_unique<speculative::SpeculativeDecoder>(
             *pimpl_->backend, pimpl_->draft_backend.get(), dc);
     }

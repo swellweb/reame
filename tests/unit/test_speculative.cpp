@@ -478,6 +478,60 @@ TEST_CASE("decoder truncates both models back to the accepted prefix") {
 }
 
 // ---------------------------------------------------------------------------
+// Prompt-lookup mode (draft-model-free speculation)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("lookup mode drafts from history and verifies in one batch") {
+    MockBackend target;
+    setup(target);
+
+    SpeculativeDecoder::Config cfg;
+    cfg.mode = SpeculativeDecoder::Config::Mode::PromptLookup;
+    cfg.draft_tokens = 3;
+    cfg.min_draft_tokens = 3;
+    cfg.max_draft_tokens = 3;
+
+    // Prompt {1,2,3,1,2}: tail 2-gram {1,2} matched at index 0, followed
+    // by {3,1,2} -> proposal. Target agrees on all three; the second
+    // iteration proposes again and the target corrects to EOS.
+    target.decode_batch_queue = {
+        {peak(kVocab, 3), peak(kVocab, 1), peak(kVocab, 2)},
+        {peak(kVocab, kEos), peak(kVocab, 0), peak(kVocab, 0)}};
+
+    SpeculativeDecoder decoder(target, nullptr, cfg);
+    CHECK(decoder.speculative_active());  // active WITHOUT a draft model
+
+    const auto out = decoder.generate({1, 2, 3, 1, 2}, greedy());
+
+    CHECK(out == std::vector<TokenId>{3, 1, 2});
+    // Verification batches: [cur=2, d1=3, d2=1] both times.
+    REQUIRE(target.decode_batch_calls.size() == 2);
+    CHECK(target.decode_batch_calls[0] == std::vector<TokenId>{2, 3, 1});
+    CHECK(decoder.metrics().total_draft_tokens == 6);
+    CHECK(decoder.metrics().total_accepted_tokens == 3);
+}
+
+TEST_CASE("lookup mode falls back to a plain step when nothing matches, staying active") {
+    MockBackend target;
+    setup(target);
+
+    SpeculativeDecoder::Config cfg;
+    cfg.mode = SpeculativeDecoder::Config::Mode::PromptLookup;
+
+    // All-distinct prompt: no n-gram repeats -> plain single-token step.
+    // First entry feeds the prefill (its logits are unused).
+    target.decode_queue = {peak(kVocab, 0), peak(kVocab, 4), peak(kVocab, kEos)};
+
+    SpeculativeDecoder decoder(target, nullptr, cfg);
+    const auto out = decoder.generate({0, 1, 2, 3}, greedy(/*max_tokens=*/1));
+
+    CHECK(out == std::vector<TokenId>{4});
+    CHECK(target.decode_batch_calls.empty());       // no batch: nothing to verify
+    CHECK_FALSE(target.decode_append_calls.empty());  // plain path used
+    CHECK(decoder.speculative_active());            // lookup stays armed
+}
+
+// ---------------------------------------------------------------------------
 // Real-model integration. SKIPs when models are unavailable.
 // ---------------------------------------------------------------------------
 

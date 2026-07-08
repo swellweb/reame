@@ -46,6 +46,9 @@ public:
         bool use_mmap = true;
         bool use_mlock = false;
         bool use_speculative = true;
+        // Speculate from n-gram matches in the prompt/history instead of a
+        // draft model (zero draft cost; no draft_model_path needed).
+        bool use_prompt_lookup = false;
         int draft_tokens = 16;  // starting speculative draft length
         // KV-cache persistence (DwarfStar4-style). Empty = disabled. When
         // set, prompt prefixes are snapshotted to disk and reused across
