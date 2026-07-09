@@ -4,10 +4,14 @@
 #include <utility>
 #include <vector>
 
+#include <condition_variable>
+#include <thread>
+
 #include "sovrano/cache/cache_manager.hpp"
 #include "sovrano/cache/prefix_cache.hpp"
 #include "sovrano/core/model.hpp"
 #include "sovrano/core/sampler.hpp"
+#include "sovrano/core/scheduler.hpp"
 #include "sovrano/speculative/speculative_decoder.hpp"
 
 namespace sovrano::core {
@@ -27,6 +31,19 @@ void validate(const SovranoEngine::Config& c) {
         c.kv_cache_type != "q4_0")
         throw EngineError("kv_cache_type must be f16, q8_0 or q4_0, got '" +
                           c.kv_cache_type + "'");
+    if (c.n_parallel < 1)
+        throw EngineError("n_parallel must be >= 1, got " +
+                          std::to_string(c.n_parallel));
+    if (c.n_parallel > 1) {
+        if (c.use_prompt_lookup || !c.draft_model_path.empty())
+            throw EngineError(
+                "n_parallel > 1 is not compatible with speculative decoding "
+                "yet: disable [speculative] or set parallel = 1");
+        if (!c.cache_dir.empty())
+            throw EngineError(
+                "n_parallel > 1 is not compatible with the disk cache yet: "
+                "unset cache.directory or set parallel = 1");
+    }
 }
 
 ModelParams to_model_params(const SovranoEngine::Config& c) {
@@ -37,6 +54,7 @@ ModelParams to_model_params(const SovranoEngine::Config& c) {
     p.use_mmap = c.use_mmap;
     p.use_mlock = c.use_mlock;
     p.kv_cache_type = c.kv_cache_type;
+    p.n_seq_max = std::max(c.n_parallel, 1);
     return p;
 }
 
@@ -49,6 +67,44 @@ struct SovranoEngine::Impl {
     std::unique_ptr<cache::CacheManager> cache;
     std::unique_ptr<cache::PrefixCache> prefix_cache;
     std::string model_tag;  // discriminates cache entries across models
+
+    // Parallel (interleaved) serving: one worker thread drives the
+    // scheduler; generate_stream() submits and blocks until its request
+    // completes.
+    std::unique_ptr<Scheduler> scheduler;
+    std::thread worker;
+    std::mutex work_mutex;
+    std::condition_variable work_cv;   // wakes the worker
+    std::condition_variable done_cv;   // wakes blocked callers
+    bool stopping = false;
+
+    ~Impl() {
+        if (worker.joinable()) {
+            {
+                std::lock_guard<std::mutex> lock(work_mutex);
+                stopping = true;
+            }
+            work_cv.notify_all();
+            worker.join();
+        }
+    }
+
+    void worker_loop() {
+        std::unique_lock<std::mutex> lock(work_mutex);
+        while (!stopping) {
+            lock.unlock();
+            bool more = true;
+            while (more) {
+                more = scheduler->step();
+                done_cv.notify_all();  // finished requests may unblock
+            }
+            lock.lock();
+            // Predicate guards against a submit that landed between the
+            // last step() and this wait (lost-wakeup).
+            work_cv.wait(lock,
+                         [this] { return stopping || !scheduler->idle(); });
+        }
+    }
     // Tokens currently represented in the KV cache (prompt + generated of
     // the last generate/load_session).
     std::vector<TokenId> context_tokens;
@@ -82,9 +138,20 @@ SovranoEngine::SovranoEngine(const Config& config,
     validate(config);
     if (backend == nullptr)
         throw EngineError("backend is null");
+    if (config.n_parallel > 1 && draft_backend != nullptr)
+        throw EngineError(
+            "n_parallel > 1 is not compatible with a draft model yet");
     pimpl_ = std::make_unique<Impl>();
     pimpl_->backend = std::move(backend);
     pimpl_->model_tag = config.model_path;
+    if (config.n_parallel > 1) {
+        pimpl_->scheduler = std::make_unique<Scheduler>(
+            *pimpl_->backend, Scheduler::Config{config.n_parallel});
+        pimpl_->worker = std::thread([impl = pimpl_.get()] {
+            impl->worker_loop();
+        });
+        return;  // parallel mode: no decoder, no disk cache (validated)
+    }
     if (!config.cache_dir.empty()) {
         cache::CacheManager::Config cc;
         cc.directory = config.cache_dir;
@@ -144,6 +211,23 @@ void SovranoEngine::generate_stream(
                           std::to_string(n_ctx));
 
     if (gen_config.echo_prompt && !callback(prompt)) return;
+
+    if (pimpl_->scheduler != nullptr) {
+        // Parallel mode: enqueue and block until this request completes.
+        // Token callbacks arrive from the worker thread.
+        const auto id = pimpl_->scheduler->submit(
+            std::move(tokens),
+            gen_config,
+            [&](TokenId t) { return callback(backend.token_piece(t)); });
+        pimpl_->work_cv.notify_all();
+        std::unique_lock<std::mutex> lock(pimpl_->work_mutex);
+        pimpl_->done_cv.wait(lock, [&] {
+            return pimpl_->scheduler->finished(id) || pimpl_->stopping;
+        });
+        if (const auto err = pimpl_->scheduler->error(id))
+            std::rethrow_exception(err);
+        return;
+    }
 
     if (pimpl_->decoder != nullptr) {
         pimpl_->decoder->generate_stream(
@@ -260,6 +344,10 @@ const speculative::SpeculativeMetrics* SovranoEngine::speculative_metrics()
 
 const cache::CacheStats* SovranoEngine::cache_stats() const {
     return pimpl_->cache == nullptr ? nullptr : &pimpl_->cache->stats();
+}
+
+bool SovranoEngine::parallel_capable() const {
+    return pimpl_->scheduler != nullptr;
 }
 
 }  // namespace sovrano::core

@@ -131,6 +131,8 @@ int main(int argc, char** argv) {
         engine_cfg.cache_compress = cfg.get_bool("cache.compress", true);
         engine_cfg.cache_block_tokens =
             static_cast<int>(cfg.get_int("cache.block_tokens", 256));
+        engine_cfg.n_parallel =
+            static_cast<int>(cfg.get_int("server.parallel", 1));
 
         log.info("loading model...");
         auto engine =

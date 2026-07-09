@@ -120,7 +120,10 @@ struct ApiHandler::Impl {
     GenerationOutcome run_generation(
         const std::string& prompt, const core::GenerationConfig& gen,
         const std::function<void(const std::string&)>& on_piece) {
-        std::lock_guard<std::mutex> lock(engine_mutex);
+        // A parallel-capable engine interleaves concurrent generations
+        // internally; serializing here would defeat it.
+        std::unique_lock<std::mutex> lock(engine_mutex, std::defer_lock);
+        if (!engine.parallel_capable()) lock.lock();
         GenerationOutcome out;
         out.prompt_tokens = engine.count_tokens(prompt);
         engine.generate_stream(

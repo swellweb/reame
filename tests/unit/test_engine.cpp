@@ -4,11 +4,13 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -308,6 +310,66 @@ TEST_CASE("engine ignores the draft backend when use_speculative is off") {
 }
 
 // ---------------------------------------------------------------------------
+// Parallel (interleaved multi-user) mode
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parallel engine serves two concurrent generations") {
+    auto cfg = valid_config();
+    cfg.n_parallel = 2;
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    mock->vocab_size_value = 6;
+    mock->eos_token_value = 5;
+    mock->tokenize_result = {1, 2};
+    mock->piece_map = {{3, "x"}, {4, "y"}};
+    // Symmetric scripts: whichever request lands on which seq, the output
+    // is the same, so the concurrent test is deterministic.
+    mock->seq_decode_queues[0] = {peak(6, 3), peak(6, 4), peak(6, 5)};
+    mock->seq_decode_queues[1] = {peak(6, 3), peak(6, 4), peak(6, 5)};
+
+    SovranoEngine engine(cfg, std::move(backend));
+    CHECK(engine.parallel_capable());
+
+    std::string out1, out2;
+    std::thread t1([&] { out1 = engine.generate("hi", greedy()); });
+    std::thread t2([&] { out2 = engine.generate("hi", greedy()); });
+    t1.join();
+    t2.join();
+
+    CHECK(out1 == "xy");
+    CHECK(out2 == "xy");
+    CHECK_FALSE(mock->decode_seqs_calls.empty());
+}
+
+TEST_CASE("parallel mode rejects incompatible feature combinations") {
+    auto cfg = valid_config();
+    cfg.n_parallel = 2;
+
+    SECTION("with a draft model") {
+        CHECK_THROWS_AS(SovranoEngine(cfg, std::make_unique<MockBackend>(),
+                                      std::make_unique<MockBackend>()),
+                        EngineError);
+    }
+    SECTION("with prompt lookup") {
+        cfg.use_prompt_lookup = true;
+        CHECK_THROWS_AS(SovranoEngine(cfg, std::make_unique<MockBackend>()),
+                        EngineError);
+    }
+    SECTION("with the disk cache") {
+        cfg.cache_dir = "/tmp/somewhere";
+        CHECK_THROWS_AS(SovranoEngine(cfg, std::make_unique<MockBackend>()),
+                        EngineError);
+    }
+}
+
+TEST_CASE("single-parallel engine is not parallel capable") {
+    auto [engine, mock] = make_engine();
+    (void)mock;
+    CHECK_FALSE(engine.parallel_capable());
+}
+
+// ---------------------------------------------------------------------------
 // Sessions
 // ---------------------------------------------------------------------------
 
@@ -533,6 +595,67 @@ TEST_CASE("[integration] prompt cache reproduces the cold output and hits disk",
     CHECK(!cold.empty());
     // Same split-prefill code path cold and warm -> identical numerics.
     CHECK(warm == cold);
+#endif
+}
+
+TEST_CASE("[integration] parallel engine: 3 users cost far less than 3x one",
+          "[integration][parbench]") {
+#ifndef SOVRANO_HAS_LLAMA
+    SKIP("built without llama.cpp (submodule not initialized)");
+#else
+    const auto path = integration_model_path();
+    if (!file_exists(path))
+        SKIP("model file not found: " + path +
+             " (run scripts/download_models.sh)");
+
+    const auto run = [&](int n_parallel, int n_requests) {
+        SovranoEngine::Config cfg;
+        cfg.model_path = path;
+        cfg.n_ctx = 1024;  // total budget shared across sequences
+        cfg.n_threads = 4;
+        cfg.n_parallel = n_parallel;
+        cfg.use_speculative = false;
+        SovranoEngine engine(cfg);
+
+        const auto t0 = std::chrono::steady_clock::now();
+        std::vector<std::string> outs(static_cast<std::size_t>(n_requests));
+        if (n_parallel == 1) {
+            // Baseline: a non-parallel engine is not thread-safe — the
+            // three requests run strictly one after another.
+            for (int i = 0; i < n_requests; ++i)
+                outs[static_cast<std::size_t>(i)] = engine.generate(
+                    "The capital of Italy is", greedy(24));
+        } else {
+            std::vector<std::thread> threads;
+            std::vector<std::exception_ptr> errs(
+                static_cast<std::size_t>(n_requests));
+            for (int i = 0; i < n_requests; ++i)
+                threads.emplace_back([&, i] {
+                    try {
+                        outs[static_cast<std::size_t>(i)] = engine.generate(
+                            "The capital of Italy is", greedy(24));
+                    } catch (...) {
+                        errs[static_cast<std::size_t>(i)] =
+                            std::current_exception();
+                    }
+                });
+            for (auto& t : threads) t.join();
+            for (const auto& e : errs)
+                if (e) std::rethrow_exception(e);
+        }
+        for (const auto& o : outs) REQUIRE(!o.empty());
+        return std::chrono::duration<double>(
+                   std::chrono::steady_clock::now() - t0)
+            .count();
+    };
+
+    const double serial = run(/*n_parallel=*/1, /*n_requests=*/3);
+    const double parallel = run(/*n_parallel=*/3, /*n_requests=*/3);
+
+    WARN("3 requests serial: " << serial << "s, interleaved: " << parallel
+                               << "s, ratio: " << serial / parallel << "x");
+    // Interleaving must beat full serialization by a clear margin.
+    CHECK(parallel < serial * 0.75);
 #endif
 }
 

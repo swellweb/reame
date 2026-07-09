@@ -14,6 +14,7 @@ add_library(sovrano_core STATIC
     core/model.cpp
     core/sampler.cpp
     core/engine.cpp
+    core/scheduler.cpp
     speculative/acceptance.cpp
     speculative/draft_generator.cpp
     speculative/batch_verifier.cpp

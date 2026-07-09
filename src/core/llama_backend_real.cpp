@@ -5,6 +5,7 @@
 #include <llama.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <mutex>
 #include <vector>
 
@@ -22,7 +23,7 @@ void ensure_backend_init() {
         // Keep llama.cpp's own logging quiet; Sovrano has its own logger.
         llama_log_set(
             [](ggml_log_level level, const char* text, void*) {
-                if (level >= GGML_LOG_LEVEL_ERROR) std::fputs(text, stderr);
+                if (level >= GGML_LOG_LEVEL_ERROR || std::getenv("SOVRANO_LLAMA_VERBOSE")) std::fputs(text, stderr);
             },
             nullptr);
     });
@@ -58,8 +59,13 @@ public:
         // where the build supports it and errors clearly otherwise.
         if (params.kv_cache_type != "f16")
             cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
-        if (params.n_seq_max > 1)
+        if (params.n_seq_max > 1) {
             cparams.n_seq_max = static_cast<uint32_t>(params.n_seq_max);
+            // One shared KV buffer for all sequences (context_length is a
+            // TOTAL budget): required for freely mixed multi-sequence
+            // batches — the per-stream default asserts on them.
+            cparams.kv_unified = true;
+        }
 
         ctx_ = llama_init_from_model(model_, cparams);
         if (ctx_ == nullptr) {

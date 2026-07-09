@@ -67,6 +67,11 @@ public:
         // Prefix snapshots are taken every this many tokens: smaller =
         // more cross-prompt hits, more disk writes.
         int cache_block_tokens = 256;
+        // Interleaved multi-user serving: N concurrent generations share
+        // each read of the model weights (context_length becomes the
+        // TOTAL KV budget). Mutually exclusive with speculative decoding
+        // and the disk cache for now — the constructor rejects the combo.
+        int n_parallel = 1;
         bool verbose = false;
     };
 
@@ -114,6 +119,10 @@ public:
 
     // Non-null only when the disk cache is enabled (cache_dir set).
     const cache::CacheStats* cache_stats() const;
+
+    // True when n_parallel > 1: generate/generate_stream may be called
+    // concurrently from multiple threads and requests are interleaved.
+    bool parallel_capable() const;
 
 private:
     struct Impl;
