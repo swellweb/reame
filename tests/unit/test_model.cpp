@@ -53,7 +53,8 @@ TEST_CASE("from_config maps config keys") {
         "threads = 14\n"
         "[memory]\n"
         "use_mmap = false\n"
-        "use_mlock = true\n");
+        "use_mlock = true\n"
+        "kv_cache_type = q8_0\n");
 
     const auto p = ModelParams::from_config(cfg);
 
@@ -62,6 +63,16 @@ TEST_CASE("from_config maps config keys") {
     CHECK(p.threads == 14);
     CHECK(p.use_mmap == false);
     CHECK(p.use_mlock == true);
+    CHECK(p.kv_cache_type == "q8_0");
+}
+
+TEST_CASE("from_config defaults kv_cache_type to f16 and validates it") {
+    const auto cfg = Config::parse_string("[model]\npath = /m.gguf\n");
+    CHECK(ModelParams::from_config(cfg).kv_cache_type == "f16");
+
+    const auto bad = Config::parse_string(
+        "[model]\npath = /m.gguf\n[memory]\nkv_cache_type = q2_banana\n");
+    CHECK_THROWS_AS(ModelParams::from_config(bad), ModelError);
 }
 
 TEST_CASE("from_config applies defaults for optional keys") {

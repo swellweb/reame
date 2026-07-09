@@ -77,6 +77,7 @@ TEST_CASE("engine constructor rejects invalid config") {
     SECTION("empty model path") { cfg.model_path.clear(); }
     SECTION("non-positive n_ctx") { cfg.n_ctx = 0; }
     SECTION("non-positive n_threads") { cfg.n_threads = 0; }
+    SECTION("invalid kv_cache_type") { cfg.kv_cache_type = "q2_banana"; }
 
     CHECK_THROWS_AS(SovranoEngine(cfg, std::make_unique<MockBackend>()),
                     EngineError);

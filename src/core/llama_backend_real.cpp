@@ -47,6 +47,17 @@ public:
         cparams.n_batch = static_cast<uint32_t>(params.context_length);
         cparams.n_threads = params.threads;
         cparams.n_threads_batch = params.threads;
+        if (params.kv_cache_type == "q8_0") {
+            cparams.type_k = GGML_TYPE_Q8_0;
+            cparams.type_v = GGML_TYPE_Q8_0;
+        } else if (params.kv_cache_type == "q4_0") {
+            cparams.type_k = GGML_TYPE_Q4_0;
+            cparams.type_v = GGML_TYPE_Q4_0;
+        }  // f16 = llama default
+        // A quantized V cache requires flash attention; AUTO enables it
+        // where the build supports it and errors clearly otherwise.
+        if (params.kv_cache_type != "f16")
+            cparams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
 
         ctx_ = llama_init_from_model(model_, cparams);
         if (ctx_ == nullptr) {

@@ -23,10 +23,15 @@ struct ModelParams {
     std::int32_t threads = 0;  // 0 is invalid; from_config fills a default
     bool use_mmap = true;
     bool use_mlock = false;
+    // KV-cache element type: f16 (default) | q8_0 | q4_0. Quantizing the
+    // cache halves/quarters its RAM at negligible quality cost — decisive
+    // on low-RAM hosts.
+    std::string kv_cache_type = "f16";
 
     // Reads: model.path (required), model.context_length, model.threads
-    // (default: hardware concurrency), memory.use_mmap, memory.use_mlock.
-    // Throws ModelError if model.path is missing.
+    // (default: hardware concurrency), memory.use_mmap, memory.use_mlock,
+    // memory.kv_cache_type. Throws ModelError if model.path is missing or
+    // a value is invalid.
     static ModelParams from_config(const Config& cfg);
 };
 

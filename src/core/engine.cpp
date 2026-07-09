@@ -23,6 +23,10 @@ void validate(const SovranoEngine::Config& c) {
     if (c.n_threads <= 0)
         throw EngineError("n_threads must be positive, got " +
                           std::to_string(c.n_threads));
+    if (c.kv_cache_type != "f16" && c.kv_cache_type != "q8_0" &&
+        c.kv_cache_type != "q4_0")
+        throw EngineError("kv_cache_type must be f16, q8_0 or q4_0, got '" +
+                          c.kv_cache_type + "'");
 }
 
 ModelParams to_model_params(const SovranoEngine::Config& c) {
@@ -32,6 +36,7 @@ ModelParams to_model_params(const SovranoEngine::Config& c) {
     p.threads = c.n_threads;
     p.use_mmap = c.use_mmap;
     p.use_mlock = c.use_mlock;
+    p.kv_cache_type = c.kv_cache_type;
     return p;
 }
 

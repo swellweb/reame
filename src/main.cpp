@@ -114,6 +114,8 @@ int main(int argc, char** argv) {
         engine_cfg.n_threads = static_cast<int>(cfg.get_int("model.threads", 4));
         engine_cfg.use_mmap = cfg.get_bool("memory.use_mmap", true);
         engine_cfg.use_mlock = cfg.get_bool("memory.use_mlock", false);
+        engine_cfg.kv_cache_type =
+            cfg.get_string("memory.kv_cache_type", "f16");
         engine_cfg.use_speculative = cfg.get_bool("speculative.enabled", true);
         // mode: model (default, needs draft_model_path) | lookup (n-gram
         // proposals from the prompt itself, no second model)

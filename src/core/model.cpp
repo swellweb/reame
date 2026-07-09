@@ -40,6 +40,11 @@ ModelParams ModelParams::from_config(const Config& cfg) {
         cfg.get_int("model.threads", default_threads()));
     p.use_mmap = cfg.get_bool("memory.use_mmap", true);
     p.use_mlock = cfg.get_bool("memory.use_mlock", false);
+    p.kv_cache_type = cfg.get_string("memory.kv_cache_type", "f16");
+    if (p.kv_cache_type != "f16" && p.kv_cache_type != "q8_0" &&
+        p.kv_cache_type != "q4_0")
+        throw ModelError("memory.kv_cache_type must be f16, q8_0 or q4_0, "
+                         "got '" + p.kv_cache_type + "'");
     return p;
 }
 
