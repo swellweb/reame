@@ -10,6 +10,7 @@
 
 #include "sovrano/cache/cache_manager.hpp"
 #include "sovrano/cache/prefix_cache.hpp"
+#include "sovrano/core/conclave.hpp"
 #include "sovrano/core/model.hpp"
 #include "sovrano/core/sampler.hpp"
 #include "sovrano/core/scheduler.hpp"
@@ -204,6 +205,39 @@ std::string SovranoEngine::generate(const std::string& prompt,
         },
         gen_config);
     return out;
+}
+
+std::string SovranoEngine::generate_best(const std::string& prompt,
+                                         const GenerationConfig& gen_config,
+                                         int n) {
+    if (n <= 1) return generate(prompt, gen_config);
+
+    const auto attempt_gen = [&](int i) { return conclave_attempt(gen_config, i); };
+
+    std::vector<std::string> outs(static_cast<std::size_t>(n));
+    if (pimpl_->scheduler != nullptr) {
+        std::vector<std::thread> threads;
+        std::vector<std::exception_ptr> errs(static_cast<std::size_t>(n));
+        for (int i = 0; i < n; ++i)
+            threads.emplace_back([&, i] {
+                try {
+                    outs[static_cast<std::size_t>(i)] =
+                        generate(prompt, attempt_gen(i));
+                } catch (...) {
+                    errs[static_cast<std::size_t>(i)] =
+                        std::current_exception();
+                }
+            });
+        for (auto& t : threads) t.join();
+        for (const auto& e : errs)
+            if (e) std::rethrow_exception(e);
+    } else {
+        for (int i = 0; i < n; ++i)
+            outs[static_cast<std::size_t>(i)] = generate(prompt, attempt_gen(i));
+    }
+    // Numeric-majority election when the answers conclude with numbers
+    // (falls back to the text medoid otherwise).
+    return outs[elect_numeric(outs)];
 }
 
 void SovranoEngine::generate_stream(

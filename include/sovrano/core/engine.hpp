@@ -96,6 +96,14 @@ public:
     std::string generate(const std::string& prompt,
                          const GenerationConfig& gen_config = {});
 
+    // The Conclave: n attempts at the same prompt (different seeds; a
+    // temperature is forced if greedy) and the consensus answer wins.
+    // With n_parallel >= n the attempts share weight reads in interleaved
+    // batches, so the extra thinking is nearly free on memory-bound CPUs;
+    // with n_parallel == 1 they run sequentially (correct, slower).
+    std::string generate_best(const std::string& prompt,
+                              const GenerationConfig& gen_config, int n);
+
     // Streaming: `callback` receives each decoded piece; returning false
     // stops generation. With echo_prompt the prompt is emitted first as a
     // single piece.

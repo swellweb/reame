@@ -353,6 +353,33 @@ TEST_CASE("parallel engine serves two concurrent generations") {
     CHECK_FALSE(mock->decode_seqs_calls.empty());
 }
 
+TEST_CASE("conclave: parallel attempts elect a consensus answer") {
+    auto cfg = valid_config();
+    cfg.n_parallel = 3;
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    mock->vocab_size_value = 6;
+    mock->eos_token_value = 5;
+    mock->tokenize_result = {1, 2};
+    mock->piece_map = {{3, "x"}, {4, "y"}};
+    // Every attempt (and every reused slot) follows the same script:
+    // "x", "y", EOS — with peaked logits the mild conclave temperature
+    // still samples the peak, so all attempts answer "xy".
+    mock->seq_template = {peak(6, 3), peak(6, 4), peak(6, 5)};
+    for (int s = 0; s < 3; ++s) mock->seq_decode_queues[s] = mock->seq_template;
+
+    SovranoEngine engine(cfg, std::move(backend));
+    CHECK(engine.generate_best("hi", greedy(), 3) == "xy");
+    CHECK_FALSE(mock->decode_seqs_calls.empty());  // attempts interleaved
+}
+
+TEST_CASE("conclave: n=1 degenerates to a plain generate") {
+    auto [engine, mock] = make_engine();
+    script_foobar(mock);
+    CHECK(engine.generate_best("hi", greedy(), 1) == "foobar");
+}
+
 TEST_CASE("parallel mode rejects incompatible feature combinations") {
     auto cfg = valid_config();
     cfg.n_parallel = 2;
