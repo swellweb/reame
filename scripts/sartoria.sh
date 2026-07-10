@@ -6,15 +6,19 @@
 #
 #   ./scripts/sartoria.sh <f16-master.gguf> <calibration.txt> <out.gguf> [QTYPE]
 #
-# STATUS — read before trusting this:
+# STATUS — read before trusting this (Qwen2.5-1.5B, synthetic domain):
 #   * Mechanism: proven end-to-end (runs in minutes on a laptop).
-#   * Quality advantage: NOT yet demonstrated. With a small synthetic
-#     calibration corpus (~1.4k words) the tailored Q3_K_M scored a
-#     statistical TIE with the generic Q3_K_M on held-out domain text
-#     (PPL 3.18±0.21 vs 3.14±0.20; Q4_K_M reference 3.02±0.19).
-#     A thin imatrix is noise and can even hurt. The honest test needs
-#     real production traffic at volume (>>10k tokens) exported from the
-#     palimpsest corpus — if you run one, please report numbers.
+#   * At Q3_K_M: statistical TIE with the generic cut, replicated with
+#     both a 1.4k-word and a 20k-word calibration corpus (tailored 3.18
+#     vs generic 3.14, Q4 reference 3.02). Comfortable quants don't need
+#     tailoring.
+#   * At Q2_K — where blind cutting hurts most — the tailored cut WINS:
+#     PPL 3.91±0.28 vs 4.09±0.29 generic (-4.4%), at 718MB vs the 1.0GB
+#     Q4. Sartoria's use case is making the impossible quant usable
+#     (e.g. a 7B in ~2.4GB tailored to your traffic), not improving the
+#     comfortable one.
+#   * Caveat: synthetic self-generated corpora; validate on real
+#     production traffic from the palimpsest archive before deploying.
 set -euo pipefail
 
 MASTER="${1:?usage: sartoria.sh <f16-master.gguf> <calibration.txt> <out.gguf> [QTYPE]}"
