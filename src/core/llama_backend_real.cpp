@@ -46,6 +46,8 @@ public:
         llama_context_params cparams = llama_context_default_params();
         cparams.n_ctx = static_cast<uint32_t>(params.context_length);
         cparams.n_batch = static_cast<uint32_t>(params.context_length);
+        if (params.n_ubatch > 0)
+            cparams.n_ubatch = static_cast<uint32_t>(params.n_ubatch);
         cparams.n_threads = params.threads;
         cparams.n_threads_batch = params.threads;
         if (params.kv_cache_type == "q8_0") {

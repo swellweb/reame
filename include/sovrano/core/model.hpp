@@ -30,6 +30,10 @@ struct ModelParams {
     // Max concurrent sequences the context supports (decode_seqs);
     // context_length is the TOTAL KV budget shared across them.
     std::int32_t n_seq_max = 1;
+    // Physical batch size for prompt processing. 0 = llama default (512).
+    // Larger values process long prompts in fewer, bigger matmuls — better
+    // SIMD utilization on CPU, faster cold prefill.
+    std::int32_t n_ubatch = 0;
 
     // Reads: model.path (required), model.context_length, model.threads
     // (default: hardware concurrency), memory.use_mmap, memory.use_mlock,

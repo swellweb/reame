@@ -51,6 +51,8 @@ public:
         bool use_mlock = false;
         // KV-cache element type: f16 | q8_0 | q4_0 (see ModelParams).
         std::string kv_cache_type = "f16";
+        // Physical prompt-processing batch (0 = default 512).
+        int n_ubatch = 0;
         bool use_speculative = true;
         // Speculate from n-gram matches in the prompt/history instead of a
         // draft model (zero draft cost; no draft_model_path needed).

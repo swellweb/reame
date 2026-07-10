@@ -57,6 +57,7 @@ ModelParams to_model_params(const SovranoEngine::Config& c) {
     p.use_mlock = c.use_mlock;
     p.kv_cache_type = c.kv_cache_type;
     p.n_seq_max = std::max(c.n_parallel, 1);
+    p.n_ubatch = c.n_ubatch;
     return p;
 }
 
