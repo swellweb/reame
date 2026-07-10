@@ -211,6 +211,12 @@ public:
         return out;
     }
 
+    void copy_seq(std::int32_t src, std::int32_t dst,
+                  std::uint32_t n_tokens) override {
+        llama_memory_seq_cp(llama_get_memory(ctx_), src, dst, 0,
+                            static_cast<llama_pos>(n_tokens));
+    }
+
     void clear_seq(std::int32_t seq_id) override {
         llama_memory_seq_rm(llama_get_memory(ctx_), seq_id, -1, -1);
     }

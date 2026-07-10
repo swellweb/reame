@@ -61,6 +61,17 @@ struct Scheduler::Impl {
         done[r.id] = std::move(err);
     }
 
+    // An active request whose prompt equals `prompt` (donor for a KV
+    // clone), or nullptr.
+    const Request* find_donor(const std::vector<TokenId>& prompt) const {
+        for (const auto& a : active) {
+            if (a.prompt_len != prompt.size()) continue;
+            if (std::equal(prompt.begin(), prompt.end(), a.history.begin()))
+                return &a;
+        }
+        return nullptr;
+    }
+
     // Move pending requests into free slots while they fit the KV budget.
     void admit() {
         while (!pending.empty() &&
@@ -68,6 +79,16 @@ struct Scheduler::Impl {
             const auto need =
                 static_cast<std::uint32_t>(pending.front().history.size());
             if (cells_used() + need > n_ctx) break;  // wait for space
+
+            // Shared prefill: an identical prompt already in flight is
+            // cloned (copy the donor's prompt KV, then decode only the
+            // last prompt token — it yields the same logits a prefill
+            // would). A donor still prefilling is worth one step's wait.
+            const Request* donor = pending.front().history.size() > 1
+                                       ? find_donor(pending.front().history)
+                                       : nullptr;
+            if (donor != nullptr && donor->n_past < donor->prompt_len)
+                break;  // donor's prefill lands next step
 
             Request r = std::move(pending.front());
             pending.pop_front();
@@ -77,6 +98,13 @@ struct Scheduler::Impl {
                     r.seq_id = static_cast<std::int32_t>(s);
                     break;
                 }
+            }
+            if (donor != nullptr) {
+                const auto shared =
+                    static_cast<std::uint32_t>(r.prompt_len - 1);
+                backend.copy_seq(donor->seq_id, r.seq_id, shared);
+                r.n_past = shared;
+                r.needs_prefill = false;
             }
             active.push_back(std::move(r));
         }

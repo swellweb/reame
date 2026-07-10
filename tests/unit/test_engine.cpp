@@ -380,6 +380,80 @@ TEST_CASE("conclave: n=1 degenerates to a plain generate") {
     CHECK(engine.generate_best("hi", greedy(), 1) == "foobar");
 }
 
+TEST_CASE("conclave: early consensus skips the remaining attempts") {
+    // Sequential conclave (n_parallel=1), n=3. The first two attempts both
+    // answer "8": an absolute majority (2 of 3) — the third attempt must
+    // never run. The script holds exactly two attempts; a third would fall
+    // back to decode_result ("Z") and betray itself in decode_calls.
+    auto [engine, mock] = make_engine();
+    mock->vocab_size_value = 6;
+    mock->eos_token_value = 5;
+    mock->tokenize_result = {1, 2};
+    mock->piece_map = {{3, "8"}, {0, "Z"}};
+    mock->decode_queue = {peak(6, 3), peak(6, 5),   // attempt 0: "8", EOS
+                          peak(6, 3), peak(6, 5)};  // attempt 1: "8", EOS
+    mock->decode_result = peak(6, 0);
+
+    CHECK(engine.generate_best("hi", greedy(), 3) == "8");
+    // One prefill per attempt: exactly 2 attempts ran.
+    CHECK(mock->decode_calls.size() == 2);
+}
+
+TEST_CASE("conclave: reports how many candidates agreed") {
+    // Sequential conclave, n=3: attempts answer "8", "8", (stopped early
+    // at 2 votes = absolute majority of 3) -> votes 2. A split conclave
+    // ("7", "8", "9") reports 1: no two candidates agreed.
+    auto [engine, mock] = make_engine();
+    mock->vocab_size_value = 6;
+    mock->eos_token_value = 5;
+    mock->tokenize_result = {1, 2};
+    mock->piece_map = {{2, "7"}, {3, "8"}, {4, "9"}};
+    mock->decode_queue = {peak(6, 3), peak(6, 5),   // "8"
+                          peak(6, 3), peak(6, 5)};  // "8" -> majority
+    int votes = 0;
+    CHECK(engine.generate_best("hi", greedy(), 3, &votes) == "8");
+    CHECK(votes == 2);
+
+    mock->decode_queue = {peak(6, 2), peak(6, 5),   // "7"
+                          peak(6, 3), peak(6, 5),   // "8"
+                          peak(6, 4), peak(6, 5)};  // "9"
+    CHECK(engine.generate_best("hi", greedy(), 3, &votes) == "7");
+    CHECK(votes == 1);
+}
+
+TEST_CASE("conclave: consensus reached in parallel stops the straggler") {
+    auto cfg = valid_config();
+    cfg.n_parallel = 3;
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    mock->vocab_size_value = 6;
+    mock->eos_token_value = 5;
+    mock->tokenize_result = {1, 2};
+    mock->piece_map = {{3, "8"}, {4, "9"}};
+    // Two slots answer "8" in one step; the third rambles "9" for 200
+    // steps. Majority (2 of 3) lands after the fast pair finishes: the
+    // straggler must be cut off long before draining its script. Steps
+    // are paced (as with a real model) so the verdict lands between
+    // steps, not after the whole script has drained at mock speed. Slot
+    // reuse (a late attempt landing on a freed slot) re-seeds from the
+    // fast template, which only reinforces the majority.
+    mock->decode_seqs_delay_ms = 5;
+    mock->seq_template = {peak(6, 3), peak(6, 5)};
+    mock->seq_decode_queues[0] = mock->seq_template;
+    mock->seq_decode_queues[1] = mock->seq_template;
+    std::deque<std::vector<float>> slow(200, peak(6, 4));
+    slow.push_back(peak(6, 5));
+    mock->seq_decode_queues[2] = slow;
+
+    SovranoEngine engine(cfg, std::move(backend));
+    auto gen = greedy(/*max_tokens=*/400);
+    CHECK(engine.generate_best("hi", gen, 3) == "8");
+    // Early stop: a run to the end of the straggler's script would take
+    // 200+ interleaved steps; consensus must cut it after a handful.
+    CHECK(mock->decode_seqs_calls.size() < 50);
+}
+
 TEST_CASE("parallel mode rejects incompatible feature combinations") {
     auto cfg = valid_config();
     cfg.n_parallel = 2;

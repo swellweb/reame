@@ -325,6 +325,46 @@ TEST_CASE("[integration] real model: tokenize round-trip and forward pass",
 #endif
 }
 
+TEST_CASE("[integration] cloned prompt KV yields the prefill's argmax",
+          "[integration]") {
+#ifndef SOVRANO_HAS_LLAMA
+    SKIP("built without llama.cpp (submodule not initialized)");
+#else
+    const auto path = integration_model_path();
+    if (!file_exists(path))
+        SKIP("model file not found: " + path +
+             " (run scripts/download_models.sh)");
+
+    ModelParams p;
+    p.path = path;
+    p.context_length = 512;
+    p.threads = 4;
+    p.n_seq_max = 2;
+    auto backend = sovrano::make_llama_backend(p);
+
+    // Reference: seq 0 prefills the full prompt.
+    const auto prompt = backend->tokenize("The capital of Italy is", true);
+    REQUIRE(prompt.size() >= 2);
+    const auto ref = backend->decode_seqs({{0, prompt, 0}});
+    REQUIRE(ref.size() == 1);
+
+    // Clone: seq 1 copies seq 0's KV for all but the last prompt token,
+    // then decodes only that token — the shared-prefill shortcut the
+    // scheduler takes for identical prompts.
+    const auto shared = static_cast<std::uint32_t>(prompt.size() - 1);
+    backend->copy_seq(0, 1, shared);
+    const std::vector<TokenId> last{prompt.back()};
+    const auto out = backend->decode_seqs({{1, last, shared}});
+    REQUIRE(out.size() == 1);
+    REQUIRE(out[0].size() == ref[0].size());
+
+    const auto argmax = [](const std::vector<float>& v) {
+        return std::distance(v.begin(), std::max_element(v.begin(), v.end()));
+    };
+    CHECK(argmax(out[0]) == argmax(ref[0]));
+#endif
+}
+
 TEST_CASE("[integration] tokenize parses special tokens as control tokens",
           "[integration]") {
 #ifndef SOVRANO_HAS_LLAMA

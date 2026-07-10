@@ -69,6 +69,12 @@ public:
     // Drops one sequence's KV cache entirely (request finished).
     virtual void clear_seq(std::int32_t seq_id) = 0;
 
+    // Copies the first n_tokens KV positions of `src` into `dst` (shared
+    // prefill: identical prompts pay one prefill, the clones are nearly
+    // free). `dst` must be empty.
+    virtual void copy_seq(std::int32_t src, std::int32_t dst,
+                          std::uint32_t n_tokens) = 0;
+
     // Clears the sequence entirely (KV cache + position counter).
     virtual void reset() = 0;
 

@@ -198,3 +198,97 @@ TEST_CASE("idle scheduler reports no work") {
     CHECK_FALSE(sched.step());
     CHECK(sched.active_count() == 0);
 }
+
+TEST_CASE("identical prompt clones the donor's KV instead of prefilling") {
+    MockBackend backend;
+    setup(backend);
+    // A (seq 0): prompt {1,2,3} -> token 4, then EOS.
+    // B (seq 1): same prompt -> token 1, then EOS.
+    backend.seq_decode_queues[0] = {peak(kVocab, 4), peak(kVocab, kEos)};
+    backend.seq_decode_queues[1] = {peak(kVocab, 1), peak(kVocab, kEos)};
+
+    Scheduler sched(backend, {2});
+    Collector ca, cb;
+    const auto a = sched.submit({1, 2, 3}, greedy(), ca.cb());
+
+    // Step 1: A prefills alone (3-token slice at pos 0).
+    REQUIRE(sched.step());
+    REQUIRE(backend.decode_seqs_calls.size() == 1);
+    REQUIRE(backend.decode_seqs_calls[0].size() == 1);
+    CHECK(backend.decode_seqs_calls[0][0].tokens.size() == 3);
+
+    // B arrives with the SAME prompt: its KV must be cloned from A —
+    // copy positions [0, 2) and decode only the LAST prompt token (which
+    // produces the logits a prefill would have produced).
+    const auto b = sched.submit({1, 2, 3}, greedy(), cb.cb());
+    sched.run_until_idle();
+
+    REQUIRE(backend.copy_seq_calls.size() == 1);
+    CHECK(backend.copy_seq_calls[0].src == 0);
+    CHECK(backend.copy_seq_calls[0].dst == 1);
+    CHECK(backend.copy_seq_calls[0].n_tokens == 2);
+
+    // No full prefill for B: every slice on seq 1 is a single token, and
+    // its first slice sits at position 2 carrying prompt token 3.
+    bool saw_b = false;
+    for (const auto& call : backend.decode_seqs_calls)
+        for (const auto& s : call)
+            if (s.seq_id == 1) {
+                CHECK(s.tokens.size() == 1);
+                if (!saw_b) {
+                    CHECK(s.pos_start == 2);
+                    CHECK(s.tokens[0] == 3);
+                    saw_b = true;
+                }
+            }
+    CHECK(saw_b);
+
+    CHECK(sched.finished(a));
+    CHECK(sched.finished(b));
+    CHECK(ca.tokens == std::vector<TokenId>{4});
+    CHECK(cb.tokens == std::vector<TokenId>{1});
+}
+
+TEST_CASE("different prompt does not clone: full prefill") {
+    MockBackend backend;
+    setup(backend);
+    backend.seq_decode_queues[0] = {peak(kVocab, 4), peak(kVocab, kEos)};
+    backend.seq_decode_queues[1] = {peak(kVocab, 1), peak(kVocab, kEos)};
+
+    Scheduler sched(backend, {2});
+    Collector ca, cb;
+    sched.submit({1, 2, 3}, greedy(), ca.cb());
+    REQUIRE(sched.step());
+    sched.submit({1, 2, 4}, greedy(), cb.cb());  // differs in the last token
+    sched.run_until_idle();
+
+    CHECK(backend.copy_seq_calls.empty());
+    // B's first slice is its full 3-token prefill.
+    bool saw_b_prefill = false;
+    for (const auto& call : backend.decode_seqs_calls)
+        for (const auto& s : call)
+            if (s.seq_id == 1 && s.tokens.size() == 3 && s.pos_start == 0)
+                saw_b_prefill = true;
+    CHECK(saw_b_prefill);
+}
+
+TEST_CASE("same prompts submitted together: first prefills, second clones") {
+    MockBackend backend;
+    setup(backend);
+    backend.seq_decode_queues[0] = {peak(kVocab, 4), peak(kVocab, kEos)};
+    backend.seq_decode_queues[1] = {peak(kVocab, 1), peak(kVocab, kEos)};
+
+    Scheduler sched(backend, {2});
+    Collector ca, cb;
+    const auto a = sched.submit({1, 2, 3}, greedy(), ca.cb());
+    const auto b = sched.submit({1, 2, 3}, greedy(), cb.cb());
+    sched.run_until_idle();
+
+    // The second waits one step for the donor's prefill, then clones.
+    REQUIRE(backend.copy_seq_calls.size() == 1);
+    CHECK(backend.copy_seq_calls[0].n_tokens == 2);
+    CHECK(sched.finished(a));
+    CHECK(sched.finished(b));
+    CHECK(ca.tokens == std::vector<TokenId>{4});
+    CHECK(cb.tokens == std::vector<TokenId>{1});
+}

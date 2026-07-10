@@ -350,7 +350,13 @@ int main(int argc, char** argv) {
         gen.max_tokens = max_tokens;
         gen.temperature = temperature;
         if (best_of > 1) {
-            std::cout << engine->generate_best(prompt, gen, best_of) << "\n";
+            int votes = 0;
+            std::cout << engine->generate_best(prompt, gen, best_of, &votes)
+                      << "\n";
+            // Agreement strength on stderr: lets a caller escalate (e.g.
+            // retry with a reasoning prompt) only when the conclave split.
+            std::cerr << "CONCLAVE consensus=" << votes << "/" << best_of
+                      << "\n";
         } else {
             engine->generate_stream(prompt, [](const std::string& piece) {
                 std::cout << piece << std::flush;

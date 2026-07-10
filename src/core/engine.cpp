@@ -1,6 +1,8 @@
 #include "sovrano/core/engine.hpp"
 
+#include <atomic>
 #include <map>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -209,20 +211,51 @@ std::string SovranoEngine::generate(const std::string& prompt,
 
 std::string SovranoEngine::generate_best(const std::string& prompt,
                                          const GenerationConfig& gen_config,
-                                         int n) {
+                                         int n, int* consensus_votes) {
+    if (consensus_votes != nullptr) *consensus_votes = 1;
     if (n <= 1) return generate(prompt, gen_config);
 
     const auto attempt_gen = [&](int i) { return conclave_attempt(gen_config, i); };
 
+    // Early consensus: each finished candidate deposits the final number
+    // of its answer. As soon as one number holds an absolute majority the
+    // election is decided — no straggler can overturn it — and the flag
+    // stops the remaining candidates mid-generation.
     std::vector<std::string> outs(static_cast<std::size_t>(n));
+    std::mutex tally_mutex;
+    std::map<std::string, int> tally;
+    std::atomic<bool> stop{false};
+    int winner = -1;
+
+    const auto run_attempt = [&](int i) {
+        std::string out;
+        generate_stream(
+            prompt,
+            [&](const std::string& piece) {
+                out += piece;
+                return !stop.load(std::memory_order_relaxed);
+            },
+            attempt_gen(i));
+        std::lock_guard<std::mutex> lock(tally_mutex);
+        outs[static_cast<std::size_t>(i)] = std::move(out);
+        // A candidate cut off mid-flight (or arriving after the verdict)
+        // must not vote: its text is truncated.
+        if (stop.load()) return;
+        const auto num = final_number(outs[static_cast<std::size_t>(i)]);
+        if (num.empty()) return;
+        if (++tally[num] * 2 > n) {
+            winner = i;
+            stop.store(true);
+        }
+    };
+
     if (pimpl_->scheduler != nullptr) {
         std::vector<std::thread> threads;
         std::vector<std::exception_ptr> errs(static_cast<std::size_t>(n));
         for (int i = 0; i < n; ++i)
             threads.emplace_back([&, i] {
                 try {
-                    outs[static_cast<std::size_t>(i)] =
-                        generate(prompt, attempt_gen(i));
+                    run_attempt(i);
                 } catch (...) {
                     errs[static_cast<std::size_t>(i)] =
                         std::current_exception();
@@ -232,12 +265,29 @@ std::string SovranoEngine::generate_best(const std::string& prompt,
         for (const auto& e : errs)
             if (e) std::rethrow_exception(e);
     } else {
-        for (int i = 0; i < n; ++i)
-            outs[static_cast<std::size_t>(i)] = generate(prompt, attempt_gen(i));
+        for (int i = 0; i < n && !stop.load(); ++i) run_attempt(i);
     }
-    // Numeric-majority election when the answers conclude with numbers
-    // (falls back to the text medoid otherwise).
-    return outs[elect_numeric(outs)];
+    // Votes for a candidate: how many finished answers share its final
+    // number (a numberless winner stands alone).
+    const auto votes_for = [&](std::size_t i) {
+        const auto num = final_number(outs[i]);
+        if (num.empty()) return 1;
+        int votes = 0;
+        for (const auto& o : outs)
+            if (final_number(o) == num) ++votes;
+        return votes;
+    };
+
+    std::size_t elected;
+    if (winner >= 0) {
+        elected = static_cast<std::size_t>(winner);
+    } else {
+        // No early majority: full election — numeric vote when the
+        // answers conclude with numbers, text medoid otherwise.
+        elected = elect_numeric(outs);
+    }
+    if (consensus_votes != nullptr) *consensus_votes = votes_for(elected);
+    return outs[elected];
 }
 
 void SovranoEngine::generate_stream(

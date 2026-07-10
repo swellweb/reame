@@ -5,12 +5,14 @@
 // real backend (llama_backend_real.cpp), which was written against the
 // actual llama.h of the pinned submodule.
 
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <map>
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "sovrano/core/llama_backend.hpp"
@@ -34,6 +36,9 @@ public:
     // When set, every decode/decode_append/decode_batch throws (fallback
     // tests).
     bool fail_decodes = false;
+    // Pacing for decode_seqs (ms per call): emulates real per-step model
+    // latency where cross-thread signals land between steps.
+    int decode_seqs_delay_ms = 0;
     // Per-token piece for token_piece (generation streaming); falls back
     // to detokenize_result when the token is not mapped.
     std::map<TokenId, std::string> piece_map;
@@ -50,6 +55,12 @@ public:
     std::vector<std::vector<TokenId>> decode_batch_calls;
     std::vector<std::vector<SeqSlice>> decode_seqs_calls;
     std::vector<std::int32_t> clear_seq_calls;
+    struct CopySeqCall {
+        std::int32_t src;
+        std::int32_t dst;
+        std::uint32_t n_tokens;
+    };
+    std::vector<CopySeqCall> copy_seq_calls;
     // Per-sequence scripted logits for decode_seqs (falls back to
     // decode_result when a seq's queue is empty). When a seq slot is
     // reused by a new request (clear_seq), its queue is re-seeded from
@@ -119,6 +130,13 @@ public:
 
     std::vector<std::vector<float>> decode_seqs(
         const std::vector<SeqSlice>& slices) override {
+        // Optional per-step pacing OUTSIDE the lock: a real model spends
+        // ~100ms per interleaved step, so cross-thread signals (e.g. the
+        // conclave's early-consensus stop) land within a step or two. At
+        // mock speed (ns/step) those signals would race the whole script.
+        if (decode_seqs_delay_ms > 0)
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(decode_seqs_delay_ms));
         std::lock_guard<std::mutex> lock(mock_mutex_);
         maybe_fail();
         decode_seqs_calls.push_back(slices);
@@ -139,6 +157,12 @@ public:
         std::lock_guard<std::mutex> lock(mock_mutex_);
         clear_seq_calls.push_back(seq_id);
         if (!seq_template.empty()) seq_decode_queues[seq_id] = seq_template;
+    }
+
+    void copy_seq(std::int32_t src, std::int32_t dst,
+                  std::uint32_t n_tokens) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
+        copy_seq_calls.push_back({src, dst, n_tokens});
     }
 
     void truncate_to(std::uint32_t n_tokens) override {
