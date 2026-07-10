@@ -24,6 +24,7 @@ add_library(sovrano_core STATIC
     cache/disk_cache_store.cpp
     cache/cache_manager.cpp
     cache/prefix_cache.cpp
+    palimpsest/corpus_index.cpp
 )
 target_include_directories(sovrano_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(sovrano_core

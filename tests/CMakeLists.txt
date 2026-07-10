@@ -19,6 +19,7 @@ add_executable(sovrano_tests
     unit/test_prompt_lookup.cpp
     unit/test_cache.cpp
     unit/test_prefix_cache.cpp
+    unit/test_corpus_index.cpp
 )
 
 if(SOVRANO_BUILD_SERVER)

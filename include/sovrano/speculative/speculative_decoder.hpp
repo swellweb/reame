@@ -8,6 +8,10 @@
 #include "sovrano/core/engine.hpp"
 #include "sovrano/core/llama_backend.hpp"
 
+namespace sovrano::palimpsest {
+class CorpusIndex;
+}
+
 namespace sovrano::speculative {
 
 struct SpeculativeMetrics {
@@ -60,6 +64,12 @@ public:
         int max_draft_tokens = 32;   // adaptive upper bound
         int lookup_max_ngram = 3;    // PromptLookup pattern lengths
         int lookup_min_ngram = 1;
+        // Optional server memory (PromptLookup mode): when the current
+        // prompt has no matching n-gram, drafts are retrieved from past
+        // generations, and every finished generation is observed back
+        // into the archive. Non-owning; may be shared, calls are made
+        // from the generation thread only.
+        palimpsest::CorpusIndex* corpus = nullptr;
         bool use_speculative = true;
         // Auto-disable: if after at least `disable_after_drafted` drafted
         // tokens the acceptance rate is below `disable_below_acceptance`,

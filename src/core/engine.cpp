@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <condition_variable>
+#include <filesystem>
 #include <thread>
 
 #include "sovrano/cache/cache_manager.hpp"
@@ -12,6 +13,7 @@
 #include "sovrano/core/model.hpp"
 #include "sovrano/core/sampler.hpp"
 #include "sovrano/core/scheduler.hpp"
+#include "sovrano/palimpsest/corpus_index.hpp"
 #include "sovrano/speculative/speculative_decoder.hpp"
 
 namespace sovrano::core {
@@ -66,6 +68,7 @@ struct SovranoEngine::Impl {
     std::unique_ptr<speculative::SpeculativeDecoder> decoder;
     std::unique_ptr<cache::CacheManager> cache;
     std::unique_ptr<cache::PrefixCache> prefix_cache;
+    std::unique_ptr<palimpsest::CorpusIndex> corpus;
     std::string model_tag;  // discriminates cache entries across models
 
     // Parallel (interleaved) serving: one worker thread drives the
@@ -166,9 +169,20 @@ SovranoEngine::SovranoEngine(const Config& config,
         pimpl_->draft_backend = std::move(draft_backend);
         speculative::SpeculativeDecoder::Config dc;
         dc.draft_tokens = config.draft_tokens;
-        if (config.use_prompt_lookup)
+        if (config.use_prompt_lookup) {
             dc.mode =
                 speculative::SpeculativeDecoder::Config::Mode::PromptLookup;
+            // Server memory: past generations become draft material, and
+            // it lives next to the KV snapshots when the cache is on.
+            if (!config.cache_dir.empty()) {
+                palimpsest::CorpusIndex::Config cc;
+                cc.directory =
+                    std::filesystem::path(config.cache_dir) / "corpus";
+                pimpl_->corpus =
+                    std::make_unique<palimpsest::CorpusIndex>(cc);
+                dc.corpus = pimpl_->corpus.get();
+            }
+        }
         pimpl_->decoder = std::make_unique<speculative::SpeculativeDecoder>(
             *pimpl_->backend, pimpl_->draft_backend.get(), dc);
     }

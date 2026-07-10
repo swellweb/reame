@@ -51,6 +51,7 @@ int main(int argc, char** argv) {
     std::string config_path = "config/sovrano.conf";
     std::string prompt;
     int max_tokens = 128;
+    float temperature = 0.7f;
     bool serve = false;
 
     for (int i = 1; i < argc; ++i) {
@@ -68,7 +69,7 @@ int main(int argc, char** argv) {
             return EXIT_SUCCESS;
         }
         if (arg == "--config" || arg == "-c" || arg == "--prompt" ||
-            arg == "-p" || arg == "--max-tokens") {
+            arg == "-p" || arg == "--max-tokens" || arg == "--temp") {
             if (i + 1 >= argc) {
                 std::cerr << "error: " << arg << " requires an argument\n";
                 return EXIT_FAILURE;
@@ -76,6 +77,7 @@ int main(int argc, char** argv) {
             const std::string value = argv[++i];
             if (arg == "--config" || arg == "-c") config_path = value;
             else if (arg == "--max-tokens") max_tokens = std::stoi(value);
+            else if (arg == "--temp") temperature = std::stof(value);
             else prompt = value;
             continue;
         }
@@ -185,6 +187,7 @@ int main(int argc, char** argv) {
 
         sovrano::core::GenerationConfig gen;
         gen.max_tokens = max_tokens;
+        gen.temperature = temperature;
         engine->generate_stream(prompt, [](const std::string& piece) {
             std::cout << piece << std::flush;
             return true;

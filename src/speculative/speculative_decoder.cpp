@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "sovrano/core/sampler.hpp"
+#include "sovrano/palimpsest/corpus_index.hpp"
 #include "sovrano/speculative/batch_verifier.hpp"
 #include "sovrano/speculative/draft_generator.hpp"
 #include "sovrano/speculative/prompt_lookup.hpp"
@@ -85,6 +86,23 @@ void SpeculativeDecoder::generate_stream(
     // KV invariant: each model holds every token of `history` except the
     // newest one (`cur`), which is fed on the next forward.
     std::vector<TokenId> history = prompt_tokens;
+
+    // Server memory: whatever this generation produced becomes retrieval
+    // material for future ones, on every exit path.
+    struct ObserveGuard {
+        palimpsest::CorpusIndex* corpus;
+        const std::vector<TokenId>& tokens;
+        ~ObserveGuard() {
+            if (corpus == nullptr) return;
+            try {
+                corpus->observe(tokens);
+            } catch (...) {
+            }
+        }
+    } observe_guard{
+        cfg_.mode == Config::Mode::PromptLookup ? cfg_.corpus : nullptr,
+        history};
+
     TokenId cur = history.back();
     std::size_t base = history.size() - 1;  // positions currently in KV
 
@@ -151,9 +169,13 @@ void SpeculativeDecoder::generate_stream(
                     continue;
                 }
             } else {
-                // Prompt lookup: zero-cost proposals from the history. No
-                // match is fine — take one plain step and try again.
+                // Prompt lookup: zero-cost proposals from the history;
+                // when the prompt has no repeats, fall back to the server
+                // archive (past generations). A miss is fine — one plain
+                // step and try again.
                 draft.tokens = lookup.find_draft(history, n_draft);
+                if (draft.tokens.empty() && cfg_.corpus != nullptr)
+                    draft.tokens = cfg_.corpus->draft(history, n_draft);
                 const auto n_vocab =
                     static_cast<std::size_t>(target_.vocab_size());
                 for (const TokenId t : draft.tokens) {

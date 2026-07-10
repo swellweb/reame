@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>
+#include <filesystem>
 #include <cstdlib>
 #include <fstream>
 #include <random>
@@ -16,6 +17,7 @@
 
 #include "../mock/llama_mock.hpp"
 #include "sovrano/core/model.hpp"
+#include "sovrano/palimpsest/corpus_index.hpp"
 #include "sovrano/speculative/acceptance.hpp"
 #include "sovrano/speculative/batch_verifier.hpp"
 #include "sovrano/speculative/draft_generator.hpp"
@@ -529,6 +531,69 @@ TEST_CASE("lookup mode falls back to a plain step when nothing matches, staying 
     CHECK(target.decode_batch_calls.empty());       // no batch: nothing to verify
     CHECK_FALSE(target.decode_append_calls.empty());  // plain path used
     CHECK(decoder.speculative_active());            // lookup stays armed
+}
+
+// ---------------------------------------------------------------------------
+// Archive (palimpsest) drafts: server memory as a speculation source
+// ---------------------------------------------------------------------------
+
+TEST_CASE("lookup mode falls back to the corpus when the prompt has no repeats") {
+    namespace fs = std::filesystem;
+    const auto dir = fs::temp_directory_path() / "sovrano-spec-corpus";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    sovrano::palimpsest::CorpusIndex corpus({dir, /*ngram=*/2});
+    // A PREVIOUS generation on this server: after {0, 1} came {2, 3}.
+    corpus.observe({9, 0, 1, 2, 3});
+
+    MockBackend target;
+    setup(target);
+    SpeculativeDecoder::Config cfg;
+    cfg.mode = SpeculativeDecoder::Config::Mode::PromptLookup;
+    cfg.lookup_max_ngram = 2;
+    cfg.draft_tokens = 2;
+    cfg.min_draft_tokens = 2;
+    cfg.max_draft_tokens = 2;
+    cfg.corpus = &corpus;
+
+    // Prompt {0, 1}: no internal repeats -> prompt-lookup finds nothing,
+    // the corpus proposes {2, 3}; target accepts both. The follow-up step
+    // has no draft material left, so it runs plain and meets EOS.
+    target.decode_batch_queue = {{peak(kVocab, 2), peak(kVocab, 3)}};
+    target.decode_result = peak(kVocab, kEos);
+
+    SpeculativeDecoder decoder(target, nullptr, cfg);
+    const auto out = decoder.generate({0, 1}, greedy());
+
+    CHECK(out == std::vector<TokenId>{2, 3});
+    REQUIRE_FALSE(target.decode_batch_calls.empty());
+    CHECK(target.decode_batch_calls[0] == std::vector<TokenId>{1, 2});
+    fs::remove_all(dir);
+}
+
+TEST_CASE("finished generations are observed into the corpus") {
+    namespace fs = std::filesystem;
+    const auto dir = fs::temp_directory_path() / "sovrano-spec-observe";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    sovrano::palimpsest::CorpusIndex corpus({dir, /*ngram=*/2});
+
+    MockBackend target;
+    setup(target);
+    SpeculativeDecoder::Config cfg;
+    cfg.mode = SpeculativeDecoder::Config::Mode::PromptLookup;
+    cfg.corpus = &corpus;
+
+    // Plain-path generation (no repeats anywhere): {0,1} -> 2 -> 3 -> EOS.
+    target.decode_queue = {peak(kVocab, 0), peak(kVocab, 2), peak(kVocab, 3),
+                           peak(kVocab, kEos)};
+
+    SpeculativeDecoder decoder(target, nullptr, cfg);
+    decoder.generate({0, 1}, greedy());
+
+    // The full history (prompt + generated) is now server memory.
+    CHECK(corpus.draft({0, 1}, 2) == std::vector<TokenId>{2, 3});
+    fs::remove_all(dir);
 }
 
 // ---------------------------------------------------------------------------

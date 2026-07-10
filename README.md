@@ -10,6 +10,9 @@ hardware as a first-class citizen instead of a fallback. Its thesis is simple:
 - 🗂️ **Persistent shared-prefix KV cache** — prompt prefixes are snapshotted to disk
   (zstd, checksummed, LRU-budgeted) and reused **across different prompts, restarts
   and processes**. A system prompt is paid for once, by the first user.
+- 📜 **Palimpsest: the server remembers what it generated** — every completed
+  generation feeds an on-disk n-gram archive; future requests draft from it
+  at zero cost. Domain workloads repeat themselves — let them pay off.
 - 🔮 **Self-regulating speculative decoding** — a small draft model *or* zero-cost
   n-gram lookup proposes tokens; the target verifies them in one batched pass.
   Sovrano *measures* whether speculation pays on your hardware and switches it
@@ -39,6 +42,7 @@ including the negative results that shaped the design.
 | Shared Contabo VPS | TinyLlama 1.1B | warm disk cache vs cold | **4.8× end-to-end** |
 | Apple M3 Pro | Qwen2.5-1.5B | prompt-lookup on a rewrite task | **1.44×** |
 | Apple M3 Pro | TinyLlama, 3 concurrent users | interleaved vs serialized | **1.6×** |
+| Apple M3 Pro | Qwen2.5-1.5B, repeated request | archive speculation (palimpsest) | **2.3×** (22→51 tok/s) |
 
 The negative result that matters: on heavily oversubscribed shared vCPUs a draft
 model runs as slowly as its target, so speculation is counter-productive there —
