@@ -332,10 +332,19 @@ TEST_CASE("parallel engine serves two concurrent generations") {
     CHECK(engine.parallel_capable());
 
     std::string out1, out2;
-    std::thread t1([&] { out1 = engine.generate("hi", greedy()); });
-    std::thread t2([&] { out2 = engine.generate("hi", greedy()); });
+    std::exception_ptr e1, e2;
+    std::thread t1([&] {
+        try { out1 = engine.generate("hi", greedy()); }
+        catch (...) { e1 = std::current_exception(); }
+    });
+    std::thread t2([&] {
+        try { out2 = engine.generate("hi", greedy()); }
+        catch (...) { e2 = std::current_exception(); }
+    });
     t1.join();
     t2.join();
+    if (e1) std::rethrow_exception(e1);
+    if (e2) std::rethrow_exception(e2);
 
     CHECK(out1 == "xy");
     CHECK(out2 == "xy");

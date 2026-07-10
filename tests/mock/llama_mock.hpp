@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <deque>
 #include <map>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -61,22 +62,26 @@ public:
 
     std::vector<TokenId> tokenize(const std::string& text,
                                   bool add_special) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         tokenize_calls.emplace_back(text, add_special);
         return tokenize_result;
     }
 
     std::string detokenize(const std::vector<TokenId>& tokens) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         detokenize_calls.push_back(tokens);
         return detokenize_result;
     }
 
     std::string token_piece(TokenId token) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         token_piece_calls.push_back(token);
         const auto it = piece_map.find(token);
         return it != piece_map.end() ? it->second : detokenize_result;
     }
 
     std::vector<float> decode(const std::vector<TokenId>& tokens) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         maybe_fail();
         decode_calls.push_back(tokens);
         n_past_value = static_cast<std::uint32_t>(tokens.size());
@@ -84,6 +89,7 @@ public:
     }
 
     std::vector<float> decode_append(const std::vector<TokenId>& tokens) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         maybe_fail();
         decode_append_calls.push_back(tokens);
         n_past_value += static_cast<std::uint32_t>(tokens.size());
@@ -92,6 +98,7 @@ public:
 
     std::vector<std::vector<float>> decode_batch(
         const std::vector<TokenId>& tokens) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         maybe_fail();
         decode_batch_calls.push_back(tokens);
         n_past_value += static_cast<std::uint32_t>(tokens.size());
@@ -108,6 +115,7 @@ public:
 
     std::vector<std::vector<float>> decode_seqs(
         const std::vector<SeqSlice>& slices) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         maybe_fail();
         decode_seqs_calls.push_back(slices);
         std::vector<std::vector<float>> out;
@@ -124,10 +132,12 @@ public:
     }
 
     void clear_seq(std::int32_t seq_id) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         clear_seq_calls.push_back(seq_id);
     }
 
     void truncate_to(std::uint32_t n_tokens) override {
+        std::lock_guard<std::mutex> lock(mock_mutex_);
         truncate_calls.push_back(n_tokens);
         n_past_value = n_tokens;
     }
@@ -167,6 +177,9 @@ private:
     }
 
     std::uint32_t n_past_value = 0;
+    // Concurrent engine tests (parallel mode) hit the mock from several
+    // threads; the real tokenizer is thread-safe, so the mock must be too.
+    mutable std::mutex mock_mutex_;
 };
 
 }  // namespace sovrano::test
