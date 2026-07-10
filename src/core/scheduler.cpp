@@ -115,7 +115,10 @@ struct Scheduler::Impl {
             return !pending.empty();
         }
 
-        // Sample one token per request; retire the finished ones.
+        // Sample one token per request; retire the finished ones. A fault
+        // in one request's sampling or callback fails ONLY that request —
+        // it must never take down the shared worker thread (and with it
+        // the whole server).
         std::vector<Request> still_active;
         still_active.reserve(active.size());
         for (std::size_t i = 0; i < active.size(); ++i) {
@@ -123,22 +126,26 @@ struct Scheduler::Impl {
             r.n_past += static_cast<std::uint32_t>(slices[i].tokens.size());
             r.needs_prefill = false;
 
-            const TokenId next =
-                r.sampler->sample(std::move(logits[i]), r.history);
-            if (next == eos) {
-                finish(r, nullptr);
-                continue;
-            }
-            const bool keep_going = r.on_token(next);
-            r.history.push_back(next);
-            ++r.emitted;
+            try {
+                const TokenId next =
+                    r.sampler->sample(std::move(logits[i]), r.history);
+                if (next == eos) {
+                    finish(r, nullptr);
+                    continue;
+                }
+                const bool keep_going = r.on_token(next);
+                r.history.push_back(next);
+                ++r.emitted;
 
-            if (!keep_going || r.emitted >= r.gen.max_tokens ||
-                r.history.size() >= n_ctx) {
-                finish(r, nullptr);
-                continue;
+                if (!keep_going || r.emitted >= r.gen.max_tokens ||
+                    r.history.size() >= n_ctx) {
+                    finish(r, nullptr);
+                    continue;
+                }
+                still_active.push_back(std::move(r));
+            } catch (...) {
+                finish(r, std::current_exception());
             }
-            still_active.push_back(std::move(r));
         }
         active = std::move(still_active);
         return !active.empty() || !pending.empty();

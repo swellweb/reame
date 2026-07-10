@@ -323,10 +323,12 @@ TEST_CASE("parallel engine serves two concurrent generations") {
     mock->eos_token_value = 5;
     mock->tokenize_result = {1, 2};
     mock->piece_map = {{3, "x"}, {4, "y"}};
-    // Symmetric scripts: whichever request lands on which seq, the output
-    // is the same, so the concurrent test is deterministic.
-    mock->seq_decode_queues[0] = {peak(6, 3), peak(6, 4), peak(6, 5)};
-    mock->seq_decode_queues[1] = {peak(6, 3), peak(6, 4), peak(6, 5)};
+    // Every sequence — however the two requests interleave, and even when
+    // one reuses the other's freed slot — runs the same fresh script:
+    // "x", "y", then EOS. seq_template re-seeds a slot on reuse.
+    mock->seq_template = {peak(6, 3), peak(6, 4), peak(6, 5)};
+    mock->seq_decode_queues[0] = mock->seq_template;
+    mock->seq_decode_queues[1] = mock->seq_template;
 
     SovranoEngine engine(cfg, std::move(backend));
     CHECK(engine.parallel_capable());

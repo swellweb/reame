@@ -51,8 +51,12 @@ public:
     std::vector<std::vector<SeqSlice>> decode_seqs_calls;
     std::vector<std::int32_t> clear_seq_calls;
     // Per-sequence scripted logits for decode_seqs (falls back to
-    // decode_result when a seq's queue is empty).
+    // decode_result when a seq's queue is empty). When a seq slot is
+    // reused by a new request (clear_seq), its queue is re-seeded from
+    // seq_template — modelling that each sequence is independent, exactly
+    // as the real backend behaves.
     std::map<std::int32_t, std::deque<std::vector<float>>> seq_decode_queues;
+    std::deque<std::vector<float>> seq_template;
     std::vector<std::uint32_t> truncate_calls;
     int reset_calls = 0;
     // State snapshot support (cache tests).
@@ -134,6 +138,7 @@ public:
     void clear_seq(std::int32_t seq_id) override {
         std::lock_guard<std::mutex> lock(mock_mutex_);
         clear_seq_calls.push_back(seq_id);
+        if (!seq_template.empty()) seq_decode_queues[seq_id] = seq_template;
     }
 
     void truncate_to(std::uint32_t n_tokens) override {
