@@ -151,6 +151,55 @@ TEST_CASE("distribution: top_p zeroes the tail and renormalizes") {
     CHECK((d[1] == 0.0f || d[2] == 0.0f));  // exactly one of the ties survives
 }
 
+TEST_CASE("distribution: nucleus on a large flat vocab keeps ceil(p*n)") {
+    // Exercises the wide-nucleus path (vocab far beyond any top-K
+    // prefilter): 1000 equal logits, top_p 0.95 -> the nucleus is the
+    // smallest prefix reaching 0.95, i.e. 950 tokens of 1/1000 each,
+    // renormalized to (1/1000)/0.95.
+    GenerationConfig cfg;
+    cfg.temperature = 1.0f;
+    cfg.top_p = 0.95f;
+    cfg.repeat_penalty = 1.0f;
+    Sampler s(cfg);
+
+    const auto d = s.distribution(std::vector<float>(1000, 0.0f), {});
+
+    REQUIRE(d.size() == 1000);
+    std::size_t kept = 0;
+    double sum = 0.0;
+    for (const float p : d) {
+        if (p > 0.0f) {
+            ++kept;
+            // 1e-5: the float cumulative over 950 addends drifts ~2e-6.
+            CHECK_THAT(p, WithinAbs(0.001 / 0.95, 1e-5));
+        }
+        sum += p;
+    }
+    // Exact math keeps 950; the float cumulative may undershoot 0.95 by
+    // ~3e-7 and legitimately take one extra token.
+    CHECK((kept == 950 || kept == 951));
+    CHECK_THAT(sum, WithinAbs(1.0, 1e-4));
+}
+
+TEST_CASE("distribution: nucleus on a large peaked vocab keeps the peak") {
+    // The dominant token alone exceeds top_p: nucleus of exactly 1 out
+    // of 1000, probability renormalized to 1.
+    GenerationConfig cfg;
+    cfg.temperature = 1.0f;
+    cfg.top_p = 0.9f;
+    cfg.repeat_penalty = 1.0f;
+    Sampler s(cfg);
+
+    std::vector<float> logits(1000, 0.0f);
+    logits[123] = 20.0f;  // e^20 dwarfs 999 ones: p > 0.999
+    const auto d = s.distribution(std::move(logits), {});
+
+    REQUIRE(d.size() == 1000);
+    CHECK_THAT(d[123], WithinAbs(1.0, 1e-5));
+    for (std::size_t i = 0; i < d.size(); ++i)
+        if (i != 123) CHECK(d[i] == 0.0f);
+}
+
 TEST_CASE("distribution: greedy is a one-hot at the argmax") {
     Sampler s(greedy());
 

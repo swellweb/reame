@@ -50,21 +50,39 @@ std::vector<float> Sampler::distribution(std::vector<float> logits,
 
     // 4. Top-p nucleus: smallest probability-sorted prefix with cumulative
     // mass >= top_p (at least one token survives); the tail is zeroed and
-    // the nucleus renormalized.
+    // the nucleus renormalized. An LLM distribution concentrates its mass
+    // in a few hundred tokens, so a full vocab sort (~150k entries, every
+    // step, every parallel candidate) is waste: select the top-k in O(n),
+    // sort only those, and widen k in the rare flat case.
     const float top_p = std::clamp(cfg_.top_p, 0.0f, 1.0f);
     if (top_p < 1.0f) {
         std::vector<std::size_t> order(n_vocab);
         std::iota(order.begin(), order.end(), 0);
-        std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+        const auto by_prob_desc = [&](std::size_t a, std::size_t b) {
             return probs[a] > probs[b];
-        });
+        };
 
+        std::size_t k = std::min<std::size_t>(512, n_vocab);
         std::size_t keep = 0;
         float cumulative = 0.0f;
-        while (keep < n_vocab) {
-            cumulative += probs[order[keep]];
-            ++keep;
-            if (cumulative >= top_p) break;
+        for (;;) {
+            if (k < n_vocab)
+                std::nth_element(order.begin(),
+                                 order.begin() + static_cast<std::ptrdiff_t>(k),
+                                 order.end(), by_prob_desc);
+            std::sort(order.begin(),
+                      order.begin() + static_cast<std::ptrdiff_t>(k),
+                      by_prob_desc);
+
+            keep = 0;
+            cumulative = 0.0f;
+            while (keep < k) {
+                cumulative += probs[order[keep]];
+                ++keep;
+                if (cumulative >= top_p) break;
+            }
+            if (cumulative >= top_p || k == n_vocab) break;
+            k = std::min(k * 4, n_vocab);  // flat tail: widen and retry
         }
         for (std::size_t i = keep; i < n_vocab; ++i) probs[order[i]] = 0.0f;
         for (std::size_t i = 0; i < keep; ++i) probs[order[i]] /= cumulative;
