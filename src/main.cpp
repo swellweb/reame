@@ -91,10 +91,23 @@ int run_zeroconfig(int argc, char** argv) {
     const std::string token = argv[2];
     std::string prompt;
     bool serve = false;
+    int max_tokens = 512;
+    float temperature = 0.7f;
+    int best_of = 1;
     for (int i = 3; i < argc; ++i) {
         const std::string a = argv[i];
-        if (a == "--serve") serve = true;
-        else if (prompt.empty()) prompt = a;
+        if (a == "--serve") {
+            serve = true;
+        } else if ((a == "--max-tokens" || a == "--temp" ||
+                    a == "--best-of") &&
+                   i + 1 < argc) {
+            const std::string v = argv[++i];
+            if (a == "--max-tokens") max_tokens = std::stoi(v);
+            else if (a == "--temp") temperature = std::stof(v);
+            else best_of = std::stoi(v);
+        } else if (prompt.empty()) {
+            prompt = a;
+        }
     }
 
     // Resolve: a catalog alias downloads to ~/.reame/models; anything
@@ -117,6 +130,16 @@ int run_zeroconfig(int argc, char** argv) {
     const unsigned hw = std::thread::hardware_concurrency();
     auto cfg = reame::core::auto_config(
         model_path, home_dir(), hw, spec.has_value() ? spec->default_ctx : 0);
+    if (best_of > 1) {
+        // Conclave: interleaved candidates; scale the TOTAL KV budget so
+        // each keeps the full per-request context (parallel mode excludes
+        // speculation and the disk cache).
+        cfg.n_parallel = best_of;
+        cfg.n_ctx *= best_of;
+        cfg.use_speculative = false;
+        cfg.use_prompt_lookup = false;
+        cfg.cache_dir.clear();
+    }
 
     try {
         log.info("loading model (" + std::to_string(cfg.n_threads) +
@@ -145,15 +168,25 @@ int run_zeroconfig(int argc, char** argv) {
         }
 
         reame::core::GenerationConfig gen;
-        gen.max_tokens = 512;
+        gen.max_tokens = max_tokens;
+        gen.temperature = temperature;
         const auto stream = [](const std::string& piece) {
             std::cout << piece << std::flush;
             return true;
         };
 
         if (!prompt.empty()) {
-            engine->generate_stream(prompt, stream, gen);
-            std::cout << "\n";
+            if (best_of > 1) {
+                int votes = 0;
+                std::cout << engine->generate_best(prompt, gen, best_of,
+                                                   &votes)
+                          << "\n";
+                std::cerr << "CONCLAVE consensus=" << votes << "/" << best_of
+                          << "\n";
+            } else {
+                engine->generate_stream(prompt, stream, gen);
+                std::cout << "\n";
+            }
             return EXIT_SUCCESS;
         }
 
