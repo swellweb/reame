@@ -21,14 +21,24 @@ hardware as a first-class citizen instead of a fallback. Its thesis is simple:
   n-gram lookup proposes tokens; the target verifies them in one batched pass.
   Sovrano *measures* whether speculation pays on your hardware and switches it
   off by itself when it doesn't.
+- 🏛️ **The Conclave: consensus as a quality knob** — `--best-of N` generates N
+  candidate answers to the same prompt in one interleaved batch (one prefill,
+  cloned into the others via KV copy; every weight read shared) and elects the
+  winner by majority on the final result. The moment an absolute majority
+  agrees, the stragglers are stopped. Honestly measured: it squeezes roughly
+  one extra correct answer per quiz out of *the model you already run* — it
+  does not make a 1.5B out-reason a 3B (consensus fixes variance, not bias).
 - 👥 **Interleaved multi-user serving** — N concurrent generations advance together
   inside single multi-sequence batches, sharing every read of the model weights
   (the cost that dominates memory-bound CPU decoding).
 - 🌐 **OpenAI-compatible REST API** — `/v1/completions`, `/v1/chat/completions`,
   SSE streaming, sessions, bearer auth, metrics. Point any OpenAI client at it.
-- 🧪 **160+ isolated tests** — every layer is mockable and tested without a model;
-  correctness of the multi-sequence and speculative paths is pinned against real
-  models in integration tests.
+- ⚡ **Zero-config CLI** — `sovrano run qwen2.5-1.5b` downloads the model once,
+  autoconfigures threads/KV/cache for the host and drops into a chat (or
+  `--serve`). No config file until you want one.
+- 🧪 **210 isolated test cases** — every layer is mockable and tested without a
+  model; correctness of the multi-sequence, speculative and KV-clone paths is
+  pinned against real models in integration tests.
 
 ![Architecture](docs/figures/architecture.svg)
 
@@ -48,11 +58,16 @@ including the negative results that shaped the design.
 | Apple M3 Pro | TinyLlama, 3 concurrent users | interleaved vs serialized | **1.6×** |
 | Apple M3 Pro | Qwen2.5-1.5B, repeated request | archive speculation (palimpsest) | **2.3×** (22→51 tok/s) |
 | Apple M3 Pro | Qwen2.5-1.5B, fresh list generation | form drafting (suggeritore) | **2.1×** (4.4s→2.1s) |
+| Apple M3 Pro | Qwen2.5-1.5B ×5 candidates | Conclave: shared prefill + early consensus + fast nucleus | 8-question quiz wall **97s → ~50s** |
+| Apple M3 Pro | Qwen2.5-1.5B `--best-of 5` vs single | 3 arithmetic quizzes, strict grading | **+0.5 to +2 correct**, ~2.5× wall (not 5×) |
 
-The negative result that matters: on heavily oversubscribed shared vCPUs a draft
+Two negative results that matter. On heavily oversubscribed shared vCPUs a draft
 model runs as slowly as its target, so speculation is counter-productive there —
-Sovrano detects this and disables it at runtime. Benchmarks that only show wins
-are advertising; these are engineering.
+Sovrano detects this and disables it at runtime. And the Conclave does **not**
+close the gap to a model twice the size on hard reasoning: majority voting
+corrects random slips, not systematic misunderstanding — we measured a 1.5B ×5
+land between the 1.5B and a 3B, never above the 3B. Benchmarks that only show
+wins are advertising; these are engineering.
 
 ## How it works
 
@@ -71,6 +86,32 @@ workloads — and a feedback controller adapts the draft length and turns
 speculation off when measured acceptance or draft economics go negative.
 
 ![Speculative decoding](docs/figures/speculative.svg)
+
+**The Conclave.** `--best-of N` submits N attempts at the same prompt to the
+interleaved scheduler: attempt 0 is the untouched anchor (greedy stays greedy),
+the explorers shift seed and heat up. The scheduler notices the identical
+prompts and **clones the prompt KV** instead of prefilling N times (copy the
+donor's cache, decode only the last prompt token — argmax-verified equal to a
+full prefill). Election is an exact-majority vote on each candidate's final
+number, with a Jaccard text-medoid fallback for prose; the moment a majority
+exists the remaining candidates are stopped mid-generation, and the CLI reports
+`CONCLAVE consensus=k/N` so a caller can escalate only when the conclave split.
+Use it as a quality knob: more accuracy from the model your hardware can
+afford, paid in idle interleaved compute rather than a bigger model's RAM.
+
+## Quick start
+
+```bash
+sovrano list                                  # model catalog + what's on disk
+sovrano run qwen2.5-1.5b                      # download once, auto-config, chat
+sovrano run qwen2.5-1.5b "Explain mmap"       # one-shot answer
+sovrano run qwen2.5-1.5b --serve              # OpenAI-compatible API on :8080
+sovrano run qwen2.5-1.5b "12*13-50?" --best-of 5   # the Conclave
+```
+
+`run` resolves a catalog name (or any local GGUF path), downloads to
+`~/.sovrano/models` on first use and picks threads, KV quantization and cache
+directory for the host. A config file is only needed when you want control.
 
 ## Install
 
@@ -93,7 +134,7 @@ brew install sovrano
 git clone https://github.com/swellweb/sovrano
 cd sovrano
 git submodule update --init --depth 1 third_party/llama.cpp
-./build.sh                       # Release build + 160+ tests
+./build.sh                       # Release build + 210 test cases
 
 ./scripts/download_models.sh     # TinyLlama (test model, ~670 MB)
 
@@ -164,12 +205,11 @@ Documentation in Italian: [docs/README.it.md](docs/README.it.md).
 
 ## Why Sovrano and not Ollama?
 
-Honestly: if you want to chat with models on your laptop, pull and switch them
-with one command — **use Ollama**. It's excellent at that, and Sovrano doesn't
-compete with it.
-
-Sovrano exists for a different job: **serving a real workload from hardware
-that costs nothing**. The difference is one sentence:
+The laptop story is the same one command: `sovrano run qwen2.5-1.5b` downloads,
+autoconfigures and chats — nothing to learn. From there the two projects
+diverge: Ollama optimizes for running *many* models casually; Sovrano optimizes
+for serving *one* workload seriously on hardware that costs nothing. The
+difference is one sentence:
 
 > Ollama runs models. Sovrano remembers having run them.
 
@@ -178,7 +218,7 @@ repeat. On a GPU that's fine — compute is cheap. On a cheap CPU, compute is
 the most expensive thing you have, and throwing it away is the cardinal sin.
 Everything in Sovrano attacks that: the disk prefix cache, the generation
 archive, the grammar prompter, self-regulating speculation, interleaved
-multi-user batches. None of it exists in Ollama.
+multi-user batches, the Conclave. None of it exists in Ollama.
 
 The practical consequence: **a Sovrano server gets faster the longer it runs.**
 The hundredth request costs a fraction of the first — the system prompt was
