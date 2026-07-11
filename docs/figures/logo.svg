@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" role="img" aria-label="Reame">
+  <style>
+    .k{fill:#111827}
+    .w{font-family:ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:58px;font-weight:600;letter-spacing:-1px}
+    @media(prefers-color-scheme:dark){.k{fill:#F9FAFB}}
+  </style>
+  <rect class="k" x="20" y="46" width="14" height="38" rx="7"/>
+  <rect x="48" y="22" width="14" height="62" rx="7" fill="#DC2626"/>
+  <rect class="k" x="76" y="46" width="14" height="38" rx="7"/>
+  <rect class="k" x="14" y="92" width="82" height="6" rx="3"/>
+  <text class="k w" x="126" y="83">reame</text>
+  <rect x="296" y="72" width="11" height="11" fill="#DC2626"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Reame">
+  <style>.k{fill:#111827}@media(prefers-color-scheme:dark){.k{fill:#F9FAFB}}</style>
+  <rect class="k" x="20" y="46" width="16" height="42" rx="8"/>
+  <rect x="52" y="22" width="16" height="66" rx="8" fill="#DC2626"/>
+  <rect class="k" x="84" y="46" width="16" height="42" rx="8"/>
+  <rect class="k" x="14" y="96" width="92" height="7" rx="3.5"/>
+</svg>
