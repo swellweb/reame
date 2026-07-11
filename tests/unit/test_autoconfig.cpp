@@ -37,6 +37,18 @@ TEST_CASE("resolve_model accepts an unambiguous prefix, case-insensitively") {
     CHECK_FALSE(resolve_model("definitely-not-a-model").has_value());
 }
 
+TEST_CASE("catalog carries the MoE pick with 1B-active economics") {
+    // OLMoE 7B-A1B: 7B-class extraction quality at 1B decode cost —
+    // measured 8/8 needles and 17.8 tok/s on a 2-core ARM free tier
+    // (dense 7B: 3.3 tok/s). The catalog must offer it.
+    const auto m = resolve_model("olmoe");
+    REQUIRE(m.has_value());
+    CHECK(m->filename == "olmoe-1b-7b-instruct-q4_k_m.gguf");
+    CHECK(m->url.find("OLMoE-1B-7B-0924-Instruct-Q4_K_M.gguf") !=
+          std::string::npos);
+    CHECK(m->note.find("MoE") != std::string::npos);
+}
+
 TEST_CASE("resolve_model returns nothing for an ambiguous prefix") {
     // "qwen" matches several catalog entries -> ambiguous -> nullopt.
     CHECK_FALSE(resolve_model("qwen").has_value());

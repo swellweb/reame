@@ -39,6 +39,12 @@ const std::vector<ModelSpec>& model_catalog() {
          "main/qwen2.5-3b-instruct-q4_k_m.gguf",
          "qwen2.5-3b-instruct-q4_k_m.gguf", 4096,
          "3B · ~2 GB · stronger, still light"},
+        {"olmoe",
+         "https://huggingface.co/bartowski/OLMoE-1B-7B-0924-Instruct-GGUF/"
+         "resolve/main/OLMoE-1B-7B-0924-Instruct-Q4_K_M.gguf",
+         "olmoe-1b-7b-instruct-q4_k_m.gguf", 4096,
+         "7B MoE, 1B active · ~4.3 GB · 7B-class extraction at ~5x the "
+         "speed of a dense 7B"},
     };
     return catalog;
 }
