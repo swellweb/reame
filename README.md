@@ -86,6 +86,7 @@ including the negative results that shaped the design.
 | Apple M3 Pro | Qwen2.5-1.5B, fresh list generation | form drafting (suggeritore) | **2.1×** (4.4s→2.1s) |
 | Apple M3 Pro | Qwen2.5-1.5B ×5 candidates | Conclave: shared prefill + early consensus + fast nucleus | 8-question quiz wall **97s → ~50s** |
 | Apple M3 Pro | Qwen2.5-1.5B `--best-of 5` vs single | 3 arithmetic quizzes, strict grading | **+0.5 to +2 correct**, ~2.5× wall (not 5×) |
+| Oracle Cloud free tier | **OLMoE 7B-A1B (MoE)** vs dense 7B | same 8-needle long-context test | **100% accuracy both · 17.8 vs 3.3 tok/s (5.4×)** |
 
 Two negative results that matter. On heavily oversubscribed shared vCPUs a draft
 model runs as slowly as its target, so speculation is counter-productive there —
