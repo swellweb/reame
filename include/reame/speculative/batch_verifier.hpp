@@ -3,12 +3,12 @@
 #include <random>
 #include <vector>
 
-#include "sovranx/core/engine.hpp"
-#include "sovranx/core/llama_backend.hpp"
-#include "sovranx/core/sampler.hpp"
-#include "sovranx/speculative/draft_generator.hpp"
+#include "reame/core/engine.hpp"
+#include "reame/core/llama_backend.hpp"
+#include "reame/core/sampler.hpp"
+#include "reame/speculative/draft_generator.hpp"
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 struct VerificationResult {
     std::vector<TokenId> accepted_tokens;  // accepted prefix of the draft
@@ -41,4 +41,4 @@ private:
     LlamaBackend& backend_;
 };
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

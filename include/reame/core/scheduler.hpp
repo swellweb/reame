@@ -6,10 +6,10 @@
 #include <memory>
 #include <vector>
 
-#include "sovranx/core/engine.hpp"
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/core/engine.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::core {
+namespace reame::core {
 
 // Interleaved multi-request scheduler: every step() packs one slice per
 // active request into a SINGLE multi-sequence forward pass, so N users
@@ -18,7 +18,7 @@ namespace sovranx::core {
 //
 // Deliberately synchronous and single-threaded: submit() enqueues,
 // step() advances everything by one batch. Tests drive step() directly;
-// production wraps it in one worker thread (see SovranXEngine).
+// production wraps it in one worker thread (see ReameEngine).
 class Scheduler {
 public:
     struct Config {
@@ -59,4 +59,4 @@ private:
     std::unique_ptr<Impl> pimpl_;
 };
 
-}  // namespace sovranx::core
+}  // namespace reame::core

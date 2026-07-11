@@ -1,4 +1,4 @@
-#include "sovranx/core/scheduler.hpp"
+#include "reame/core/scheduler.hpp"
 
 #include <algorithm>
 #include <deque>
@@ -6,9 +6,9 @@
 #include <mutex>
 #include <utility>
 
-#include "sovranx/core/sampler.hpp"
+#include "reame/core/sampler.hpp"
 
-namespace sovranx::core {
+namespace reame::core {
 
 namespace {
 
@@ -241,4 +241,4 @@ bool Scheduler::idle() const {
     return pimpl_->active.empty() && pimpl_->pending.empty();
 }
 
-}  // namespace sovranx::core
+}  // namespace reame::core

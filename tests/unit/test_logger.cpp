@@ -1,14 +1,14 @@
-// Isolated tests for sovranx::Logger. The output stream is injected
+// Isolated tests for reame::Logger. The output stream is injected
 // (ostringstream) and timestamps are disabled for deterministic output.
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <sstream>
 
-#include "sovranx/utils/logger.hpp"
+#include "reame/utils/logger.hpp"
 
-using sovranx::Logger;
-using sovranx::LogLevel;
+using reame::Logger;
+using reame::LogLevel;
 
 TEST_CASE("formats level and message on one line") {
     std::ostringstream out;

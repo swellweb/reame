@@ -15,9 +15,9 @@
 #include <thread>
 #include <vector>
 
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::test {
+namespace reame::test {
 
 class MockBackend : public LlamaBackend {
 public:
@@ -211,4 +211,4 @@ private:
     mutable std::mutex mock_mutex_;
 };
 
-}  // namespace sovranx::test
+}  // namespace reame::test

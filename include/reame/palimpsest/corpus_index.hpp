@@ -5,9 +5,9 @@
 #include <memory>
 #include <vector>
 
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::palimpsest {
+namespace reame::palimpsest {
 
 // The generation memory of an inference server: an append-only log of
 // every token stream the server has produced, indexed so that "what came
@@ -62,4 +62,4 @@ private:
     std::unique_ptr<Impl> pimpl_;
 };
 
-}  // namespace sovranx::palimpsest
+}  // namespace reame::palimpsest

@@ -4,10 +4,10 @@
 #include <memory>
 #include <string>
 
-#include "sovranx/core/engine.hpp"
-#include "sovranx/server/http_types.hpp"
+#include "reame/core/engine.hpp"
+#include "reame/server/http_types.hpp"
 
-namespace sovranx::server {
+namespace reame::server {
 
 // Protocol layer: maps HTTP requests onto the engine. Pure with respect to
 // the network — input is an HttpRequest, output goes to a ResponseWriter —
@@ -32,10 +32,10 @@ public:
         bool enable_cors = true;
         bool enable_metrics = true;
         int max_concurrent_requests = 10;  // generation endpoints -> 503
-        std::string model_id = "sovranx";
+        std::string model_id = "reame";
     };
 
-    ApiHandler(const Config& cfg, core::SovranXEngine& engine);
+    ApiHandler(const Config& cfg, core::ReameEngine& engine);
     ~ApiHandler();
     ApiHandler(const ApiHandler&) = delete;
     ApiHandler& operator=(const ApiHandler&) = delete;
@@ -57,4 +57,4 @@ private:
     std::unique_ptr<Impl> pimpl_;
 };
 
-}  // namespace sovranx::server
+}  // namespace reame::server

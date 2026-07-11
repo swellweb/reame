@@ -5,12 +5,12 @@
 #include <string>
 #include <vector>
 
-#include "sovranx/core/engine.hpp"
+#include "reame/core/engine.hpp"
 
-namespace sovranx::core {
+namespace reame::core {
 
 // Zero-config path: one command, sensible defaults, no .conf to edit.
-// `sovranx run qwen2.5-1.5b` downloads the model (once), picks threads,
+// `reame run qwen2.5-1.5b` downloads the model (once), picks threads,
 // context and a cache location, and serves — like `ollama run`.
 
 // A known model: a short alias mapped to a Hugging Face GGUF download.
@@ -36,10 +36,10 @@ int auto_threads(unsigned hw);
 
 // Fully-populated engine config from just a model path — home-dir cache,
 // auto threads, quantized KV, prompt-lookup on. `home` is the user's home
-// directory (cache goes under <home>/.sovranx/cache).
-SovranXEngine::Config auto_config(const std::string& model_path,
+// directory (cache goes under <home>/.reame/cache).
+ReameEngine::Config auto_config(const std::string& model_path,
                                   const std::string& home,
                                   unsigned hw,
                                   int ctx = 0);
 
-}  // namespace sovranx::core
+}  // namespace reame::core

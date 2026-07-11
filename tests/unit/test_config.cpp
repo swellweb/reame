@@ -1,14 +1,14 @@
-// Isolated tests for sovranx::Config. No filesystem, no other components:
+// Isolated tests for reame::Config. No filesystem, no other components:
 // parsing is exercised via parse_string / std::istringstream only.
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <sstream>
 
-#include "sovranx/utils/config.hpp"
+#include "reame/utils/config.hpp"
 
-using sovranx::Config;
-using sovranx::ConfigError;
+using reame::Config;
+using reame::ConfigError;
 
 TEST_CASE("parses key=value pairs namespaced by section") {
     const auto cfg = Config::parse_string(
@@ -34,11 +34,11 @@ TEST_CASE("trims whitespace, skips blank lines and comments") {
         "\n"
         "# full-line hash comment\n"
         "; full-line semicolon comment\n"
-        "  name   =   sovranx  \n"
+        "  name   =   reame  \n"
         "\n");
 
     CHECK(cfg.size() == 1);
-    CHECK(cfg.get_string("name") == "sovranx");
+    CHECK(cfg.get_string("name") == "reame");
 }
 
 TEST_CASE("duplicate key: last value wins") {

@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace sovranx {
+namespace reame {
 
 // Parse/lookup error. Carries the 1-based line number for parse errors
 // (0 when the error is not tied to a specific line, e.g. missing key).
@@ -54,4 +54,4 @@ private:
     std::map<std::string, std::string> values_;
 };
 
-}  // namespace sovranx
+}  // namespace reame

@@ -3,12 +3,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "sovranx/core/autoconfig.hpp"
+#include "reame/core/autoconfig.hpp"
 
-using sovranx::core::auto_config;
-using sovranx::core::auto_threads;
-using sovranx::core::model_catalog;
-using sovranx::core::resolve_model;
+using reame::core::auto_config;
+using reame::core::auto_threads;
+using reame::core::model_catalog;
+using reame::core::resolve_model;
 
 TEST_CASE("catalog is non-empty and every entry is well-formed") {
     const auto& cat = model_catalog();
@@ -60,7 +60,7 @@ TEST_CASE("auto_config produces a valid, ready-to-run config") {
     CHECK(cfg.kv_cache_type == "q8_0");      // save RAM by default
     CHECK(cfg.use_prompt_lookup == true);    // free speedup, on by default
     // Cache lands under the user's home so nothing needs creating by hand.
-    CHECK(cfg.cache_dir == "/home/user/.sovranx/cache");
+    CHECK(cfg.cache_dir == "/home/user/.reame/cache");
 }
 
 TEST_CASE("auto_config honours an explicit context override") {
@@ -71,6 +71,6 @@ TEST_CASE("auto_config honours an explicit context override") {
 TEST_CASE("auto_config falls back to a safe cache dir when home is empty") {
     const auto cfg = auto_config("/m.gguf", "", 4);
     // No home known -> cache next to the model dir, never the filesystem root.
-    CHECK(cfg.cache_dir != "/.sovranx/cache");
+    CHECK(cfg.cache_dir != "/.reame/cache");
     CHECK(!cfg.cache_dir.empty());
 }

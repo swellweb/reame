@@ -4,7 +4,7 @@
 #include <optional>
 #include <string>
 
-namespace sovranx::server {
+namespace reame::server {
 
 // Case-insensitive header map (HTTP header names are case-insensitive).
 struct CaseInsensitiveLess {
@@ -56,4 +56,4 @@ std::optional<HttpRequest> parse_http_request(const std::string& data);
 // Serializes a response with Content-Length and the standard line endings.
 std::string serialize_http_response(const HttpResponse& response);
 
-}  // namespace sovranx::server
+}  // namespace reame::server

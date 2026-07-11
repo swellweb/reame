@@ -1,4 +1,4 @@
-// Isolated tests for sovranx::core::Sampler. Pure unit: hand-built logits,
+// Isolated tests for reame::core::Sampler. Pure unit: hand-built logits,
 // expected outcomes derived from the sampling rules, no llama.cpp.
 
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -8,14 +8,14 @@
 #include <set>
 #include <vector>
 
-#include "sovranx/core/sampler.hpp"
+#include "reame/core/sampler.hpp"
 
 using Catch::Matchers::WithinAbs;
 
-using sovranx::TokenId;
-using sovranx::core::EngineError;
-using sovranx::core::GenerationConfig;
-using sovranx::core::Sampler;
+using reame::TokenId;
+using reame::core::EngineError;
+using reame::core::GenerationConfig;
+using reame::core::Sampler;
 
 namespace {
 

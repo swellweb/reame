@@ -5,11 +5,11 @@
 
 #include <string>
 
-#include "sovranx/server/http_types.hpp"
+#include "reame/server/http_types.hpp"
 
-using sovranx::server::HttpResponse;
-using sovranx::server::parse_http_request;
-using sovranx::server::serialize_http_response;
+using reame::server::HttpResponse;
+using reame::server::parse_http_request;
+using reame::server::serialize_http_response;
 
 TEST_CASE("parses a GET request with headers") {
     const auto req = parse_http_request(

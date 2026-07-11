@@ -1,11 +1,11 @@
-#include "sovranx/cache/disk_cache_store.hpp"
+#include "reame/cache/disk_cache_store.hpp"
 
 #include <algorithm>
 #include <fstream>
 
-#include "sovranx/cache/cache_serializer.hpp"
+#include "reame/cache/cache_serializer.hpp"
 
-namespace sovranx::cache {
+namespace reame::cache {
 
 namespace fs = std::filesystem;
 
@@ -149,4 +149,4 @@ void DiskCacheStore::evict_until_fits(std::uint64_t incoming) {
     }
 }
 
-}  // namespace sovranx::cache
+}  // namespace reame::cache

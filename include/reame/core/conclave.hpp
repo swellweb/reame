@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "sovranx/core/engine.hpp"
+#include "reame/core/engine.hpp"
 
-namespace sovranx::core {
+namespace reame::core {
 
 // The Conclave: N candidate answers deliberate, one emerges.
 //
@@ -45,4 +45,4 @@ std::size_t elect_numeric(const std::vector<std::string>& candidates);
 // candidates genuinely diverge.
 GenerationConfig conclave_attempt(const GenerationConfig& gen, int i);
 
-}  // namespace sovranx::core
+}  // namespace reame::core

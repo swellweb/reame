@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 // Pure speculative-sampling primitives (Leviathan/Chen scheme, the one
 // DSpark builds on). Kept as free functions so the math is testable with
@@ -24,4 +24,4 @@ inline bool accept_token(float target_prob, float draft_prob, float r) {
 std::vector<float> residual_distribution(const std::vector<float>& target_probs,
                                          const std::vector<float>& draft_probs);
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

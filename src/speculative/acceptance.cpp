@@ -1,8 +1,8 @@
-#include "sovranx/speculative/acceptance.hpp"
+#include "reame/speculative/acceptance.hpp"
 
 #include <algorithm>
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 std::vector<float> residual_distribution(const std::vector<float>& target_probs,
                                          const std::vector<float>& draft_probs) {
@@ -18,4 +18,4 @@ std::vector<float> residual_distribution(const std::vector<float>& target_probs,
     return residual;
 }
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(sovranx
-    VERSION 0.1.1
-    DESCRIPTION "SovranX - CPU inference engine for GGUF LLMs (speculative decoding + memory optimizations)"
+project(reame
+    VERSION 0.1.2
+    DESCRIPTION "Reame - CPU inference engine for GGUF LLMs (speculative decoding + memory optimizations)"
     LANGUAGES CXX
 )
 
@@ -18,11 +18,11 @@ endif()
 # ---------------------------------------------------------------------------
 # Options
 # ---------------------------------------------------------------------------
-option(SOVRANX_BUILD_TESTS   "Build unit tests"                     ON)
-option(SOVRANX_BUILD_SERVER  "Build HTTP server (needs Boost.Asio)" ON)
-option(SOVRANX_ENABLE_AVX2   "Enable AVX2 codegen (x86_64 only)"    ON)
-option(SOVRANX_ENABLE_AVX512 "Enable AVX-512 codegen (x86_64 only)" OFF)
-option(SOVRANX_WERROR        "Treat warnings as errors"             OFF)
+option(REAME_BUILD_TESTS   "Build unit tests"                     ON)
+option(REAME_BUILD_SERVER  "Build HTTP server (needs Boost.Asio)" ON)
+option(REAME_ENABLE_AVX2   "Enable AVX2 codegen (x86_64 only)"    ON)
+option(REAME_ENABLE_AVX512 "Enable AVX-512 codegen (x86_64 only)" OFF)
+option(REAME_WERROR        "Treat warnings as errors"             OFF)
 
 include(cmake/CompilerFlags.cmake)
 
@@ -30,9 +30,9 @@ include(cmake/CompilerFlags.cmake)
 # llama.cpp (submodule). If missing, the build proceeds without it: the
 # core library falls back to a stub backend that errors at model load.
 # ---------------------------------------------------------------------------
-set(SOVRANX_HAS_LLAMA OFF)
+set(REAME_HAS_LLAMA OFF)
 if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/llama.cpp/CMakeLists.txt")
-    set(SOVRANX_HAS_LLAMA ON)
+    set(REAME_HAS_LLAMA ON)
     # CPU-only engine: no GPU backends, no extra tooling.
     set(LLAMA_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
     set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -43,7 +43,7 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/llama.cpp/CMakeLists.txt")
     set(GGML_CUDA            OFF CACHE BOOL "" FORCE)
     set(GGML_VULKAN          OFF CACHE BOOL "" FORCE)
     # ggml handles its own SIMD flags (AVX2/AVX512 on x86_64, NEON on arm64);
-    # SOVRANX_ENABLE_AVX* only affects SovranX's own code.
+    # REAME_ENABLE_AVX* only affects Reame's own code.
     add_subdirectory(third_party/llama.cpp EXCLUDE_FROM_ALL)
 else()
     message(WARNING
@@ -66,7 +66,7 @@ if(NOT ZSTD_FOUND)
     message(STATUS "zstd not found - KV cache will be stored uncompressed")
 endif()
 
-if(SOVRANX_BUILD_SERVER)
+if(REAME_BUILD_SERVER)
     # Boost.Asio/System are header-only in modern Boost: headers suffice.
     find_package(Boost 1.74 QUIET CONFIG)
     find_package(nlohmann_json 3.10 QUIET)
@@ -76,23 +76,23 @@ if(SOVRANX_BUILD_SERVER)
             "Server dependencies missing (Boost: ${Boost_FOUND}, "
             "nlohmann_json: ${nlohmann_json_FOUND}). "
             "Server target disabled for this build.")
-        set(SOVRANX_BUILD_SERVER OFF)
+        set(REAME_BUILD_SERVER OFF)
     endif()
 endif()
 
 add_subdirectory(src)
 
-if(SOVRANX_BUILD_TESTS)
+if(REAME_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
 
 message(STATUS "-----------------------------------------------")
-message(STATUS "SovranX ${PROJECT_VERSION}")
+message(STATUS "Reame ${PROJECT_VERSION}")
 message(STATUS "  Build type : ${CMAKE_BUILD_TYPE}")
-message(STATUS "  llama.cpp  : ${SOVRANX_HAS_LLAMA}")
-message(STATUS "  Tests      : ${SOVRANX_BUILD_TESTS}")
-message(STATUS "  Server     : ${SOVRANX_BUILD_SERVER}")
-message(STATUS "  AVX2       : ${SOVRANX_HAS_AVX2}")
-message(STATUS "  AVX-512    : ${SOVRANX_HAS_AVX512}")
+message(STATUS "  llama.cpp  : ${REAME_HAS_LLAMA}")
+message(STATUS "  Tests      : ${REAME_BUILD_TESTS}")
+message(STATUS "  Server     : ${REAME_BUILD_SERVER}")
+message(STATUS "  AVX2       : ${REAME_HAS_AVX2}")
+message(STATUS "  AVX-512    : ${REAME_HAS_AVX512}")
 message(STATUS "-----------------------------------------------")

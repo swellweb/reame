@@ -4,13 +4,13 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include "sovranx/core/conclave.hpp"
+#include "reame/core/conclave.hpp"
 
 using Catch::Matchers::WithinAbs;
-using sovranx::core::answer_similarity;
-using sovranx::core::elect;
-using sovranx::core::elect_numeric;
-using sovranx::core::final_number;
+using reame::core::answer_similarity;
+using reame::core::elect;
+using reame::core::elect_numeric;
+using reame::core::final_number;
 
 TEST_CASE("similarity: identical answers score 1, disjoint score 0") {
     CHECK_THAT(answer_similarity("the answer is rome", "the answer is rome"),
@@ -100,23 +100,23 @@ TEST_CASE("elect_numeric: degenerate inputs") {
 }
 
 TEST_CASE("conclave_attempt: attempt 0 is the untouched anchor") {
-    sovranx::core::GenerationConfig g;
+    reame::core::GenerationConfig g;
     g.temperature = 0.0f;  // greedy caller
     g.seed = 42;
-    const auto a0 = sovranx::core::conclave_attempt(g, 0);
+    const auto a0 = reame::core::conclave_attempt(g, 0);
     CHECK(a0.temperature == 0.0f);
     CHECK(a0.seed == 42);
 }
 
 TEST_CASE("conclave_attempt: explorers shift seed and heat up") {
-    sovranx::core::GenerationConfig g;
+    reame::core::GenerationConfig g;
     g.temperature = 0.0f;
     g.seed = 42;
-    const auto a3 = sovranx::core::conclave_attempt(g, 3);
+    const auto a3 = reame::core::conclave_attempt(g, 3);
     CHECK(a3.seed == 45);
     CHECK_THAT(a3.temperature, WithinAbs(0.7, 1e-6));
     // A caller already hotter than 0.7 keeps its own temperature.
     g.temperature = 0.9f;
-    CHECK_THAT(sovranx::core::conclave_attempt(g, 1).temperature,
+    CHECK_THAT(reame::core::conclave_attempt(g, 1).temperature,
                WithinAbs(0.9, 1e-6));
 }

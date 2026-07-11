@@ -1,4 +1,4 @@
-#include "sovranx/server/api_handler.hpp"
+#include "reame/server/api_handler.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -6,9 +6,9 @@
 #include <mutex>
 #include <utility>
 
-#include "sovranx/speculative/speculative_decoder.hpp"
+#include "reame/speculative/speculative_decoder.hpp"
 
-namespace sovranx::server {
+namespace reame::server {
 
 using nlohmann::json;
 
@@ -61,14 +61,14 @@ private:
 
 struct ApiHandler::Impl {
     Config cfg;
-    core::SovranXEngine& engine;
+    core::ReameEngine& engine;
     // The engine is not thread-safe; every engine call is serialized.
     std::mutex engine_mutex;
     std::atomic<int> active_generations{0};
     std::atomic<std::uint64_t> total_requests{0};
     std::atomic<std::uint64_t> errors{0};
 
-    Impl(const Config& c, core::SovranXEngine& e) : cfg(c), engine(e) {}
+    Impl(const Config& c, core::ReameEngine& e) : cfg(c), engine(e) {}
 
     // ---- Helpers -----------------------------------------------------
 
@@ -364,7 +364,7 @@ struct ApiHandler::Impl {
                     json{{"object", "list"},
                          {"data", json::array({{{"id", cfg.model_id},
                                                 {"object", "model"},
-                                                {"owned_by", "sovranx"}}})}});
+                                                {"owned_by", "reame"}}})}});
             return;
         }
 
@@ -392,7 +392,7 @@ struct ApiHandler::Impl {
     }
 };
 
-ApiHandler::ApiHandler(const Config& cfg, core::SovranXEngine& engine)
+ApiHandler::ApiHandler(const Config& cfg, core::ReameEngine& engine)
     : pimpl_(std::make_unique<Impl>(cfg, engine)) {}
 
 ApiHandler::~ApiHandler() = default;
@@ -411,4 +411,4 @@ ApiHandler::Stats ApiHandler::stats() const {
     return {pimpl_->total_requests.load(), pimpl_->errors.load()};
 }
 
-}  // namespace sovranx::server
+}  // namespace reame::server

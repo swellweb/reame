@@ -5,14 +5,14 @@
 #include <memory>
 #include <vector>
 
-#include "sovranx/core/engine.hpp"
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/core/engine.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::palimpsest {
+namespace reame::palimpsest {
 class CorpusIndex;
 }
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 struct SpeculativeMetrics {
     std::uint64_t total_draft_tokens = 0;
@@ -113,4 +113,4 @@ private:
     bool speculative_active_;
 };
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

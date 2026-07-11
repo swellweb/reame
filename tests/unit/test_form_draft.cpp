@@ -5,9 +5,9 @@
 
 #include <string>
 
-#include "sovranx/speculative/form_draft.hpp"
+#include "reame/speculative/form_draft.hpp"
 
-using sovranx::speculative::FormDraft;
+using reame::speculative::FormDraft;
 
 TEST_CASE("numbered list: proposes the next number after a completed item") {
     CHECK(FormDraft::propose("Benefits:\n1. Better focus\n") == "2. ");

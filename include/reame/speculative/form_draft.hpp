@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 // The prompter ("suggeritore"): grammar as a draft source.
 //
@@ -29,4 +29,4 @@ public:
     static std::string propose(const std::string& tail);
 };
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

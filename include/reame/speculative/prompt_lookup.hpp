@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 // Draft-model-free speculation: candidate continuations are found by
 // n-gram lookup in the tokens already seen (prompt + generated). When the
@@ -34,4 +34,4 @@ private:
     Config cfg_;
 };
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

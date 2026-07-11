@@ -2,11 +2,11 @@
 
 #include <vector>
 
-#include "sovranx/core/engine.hpp"
-#include "sovranx/core/llama_backend.hpp"
-#include "sovranx/core/sampler.hpp"
+#include "reame/core/engine.hpp"
+#include "reame/core/llama_backend.hpp"
+#include "reame/core/sampler.hpp"
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 // Draft rollout result: candidate tokens plus the full draft distribution
 // each one was sampled from (needed by acceptance sampling and by the
@@ -44,4 +44,4 @@ private:
     Config cfg_;
 };
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

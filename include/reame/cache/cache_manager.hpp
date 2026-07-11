@@ -5,10 +5,10 @@
 #include <string>
 #include <vector>
 
-#include "sovranx/cache/disk_cache_store.hpp"
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/cache/disk_cache_store.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::cache {
+namespace reame::cache {
 
 struct CacheStats {
     std::uint64_t hits = 0;
@@ -52,4 +52,4 @@ private:
     CacheStats stats_;
 };
 
-}  // namespace sovranx::cache
+}  // namespace reame::cache

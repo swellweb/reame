@@ -1,18 +1,18 @@
-#include "sovranx/speculative/speculative_decoder.hpp"
+#include "reame/speculative/speculative_decoder.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <utility>
 
-#include "sovranx/core/sampler.hpp"
-#include "sovranx/palimpsest/corpus_index.hpp"
-#include "sovranx/speculative/batch_verifier.hpp"
-#include "sovranx/speculative/draft_generator.hpp"
-#include "sovranx/speculative/form_draft.hpp"
-#include "sovranx/speculative/prompt_lookup.hpp"
+#include "reame/core/sampler.hpp"
+#include "reame/palimpsest/corpus_index.hpp"
+#include "reame/speculative/batch_verifier.hpp"
+#include "reame/speculative/draft_generator.hpp"
+#include "reame/speculative/form_draft.hpp"
+#include "reame/speculative/prompt_lookup.hpp"
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 namespace {
 
@@ -300,4 +300,4 @@ void SpeculativeDecoder::maybe_auto_disable() {
         speculative_active_ = false;
 }
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

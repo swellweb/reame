@@ -4,9 +4,9 @@
 #include <memory>
 #include <string>
 
-#include "sovranx/core/engine.hpp"
+#include "reame/core/engine.hpp"
 
-namespace sovranx::server {
+namespace reame::server {
 
 // Thin Boost.Asio shell around ApiHandler: accepts connections, reads one
 // request (bounded by max_request_size_mb), routes it, writes the response
@@ -25,10 +25,10 @@ public:
         bool enable_metrics = true;
         bool enable_request_logging = true;
         std::string api_key;  // empty = authentication disabled
-        std::string model_id = "sovranx";
+        std::string model_id = "reame";
     };
 
-    HttpServer(Config config, std::shared_ptr<core::SovranXEngine> engine);
+    HttpServer(Config config, std::shared_ptr<core::ReameEngine> engine);
     ~HttpServer();
     HttpServer(const HttpServer&) = delete;
     HttpServer& operator=(const HttpServer&) = delete;
@@ -43,4 +43,4 @@ private:
     std::unique_ptr<Impl> pimpl_;
 };
 
-}  // namespace sovranx::server
+}  // namespace reame::server

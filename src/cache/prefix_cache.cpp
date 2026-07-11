@@ -1,10 +1,10 @@
-#include "sovranx/cache/prefix_cache.hpp"
+#include "reame/cache/prefix_cache.hpp"
 
 #include <algorithm>
 
-#include "sovranx/cache/cache_serializer.hpp"
+#include "reame/cache/cache_serializer.hpp"
 
-namespace sovranx::cache {
+namespace reame::cache {
 
 PrefixCache::PrefixCache(CacheManager& manager, std::string model_tag,
                          int block_tokens)
@@ -65,4 +65,4 @@ std::uint32_t PrefixCache::prefill(const std::vector<TokenId>& prefix,
     return restored;
 }
 
-}  // namespace sovranx::cache
+}  // namespace reame::cache

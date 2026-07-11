@@ -6,17 +6,17 @@
 #include <stdexcept>
 #include <string>
 
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 struct SpeculativeMetrics;
 }
 
-namespace sovranx::cache {
+namespace reame::cache {
 struct CacheStats;
 }
 
-namespace sovranx::core {
+namespace reame::core {
 
 class EngineError : public std::runtime_error {
 public:
@@ -36,7 +36,7 @@ struct GenerationConfig {
 // Base generation engine: tokenize -> prefill -> sequential decode with
 // sampling. No speculative decoding yet (Step 4) and sessions are
 // in-memory snapshots of the context tokens (persistent cache is Step 5).
-class SovranXEngine {
+class ReameEngine {
 public:
     struct Config {
         std::string model_path;
@@ -78,20 +78,20 @@ public:
     };
 
     // Production: loads the model(s) through the real llama.cpp backend.
-    explicit SovranXEngine(const Config& config);
+    explicit ReameEngine(const Config& config);
 
     // Test seam: inject a target backend (mock). Still validates `config`.
-    SovranXEngine(const Config& config, std::unique_ptr<LlamaBackend> backend);
+    ReameEngine(const Config& config, std::unique_ptr<LlamaBackend> backend);
 
     // Test seam: inject target + draft backends (speculative decoding).
-    SovranXEngine(const Config& config, std::unique_ptr<LlamaBackend> backend,
+    ReameEngine(const Config& config, std::unique_ptr<LlamaBackend> backend,
                   std::unique_ptr<LlamaBackend> draft_backend);
 
-    ~SovranXEngine();
-    SovranXEngine(SovranXEngine&&) noexcept;
-    SovranXEngine& operator=(SovranXEngine&&) noexcept;
-    SovranXEngine(const SovranXEngine&) = delete;
-    SovranXEngine& operator=(const SovranXEngine&) = delete;
+    ~ReameEngine();
+    ReameEngine(ReameEngine&&) noexcept;
+    ReameEngine& operator=(ReameEngine&&) noexcept;
+    ReameEngine(const ReameEngine&) = delete;
+    ReameEngine& operator=(const ReameEngine&) = delete;
 
     std::string generate(const std::string& prompt,
                          const GenerationConfig& gen_config = {});
@@ -145,4 +145,4 @@ private:
     std::unique_ptr<Impl> pimpl_;
 };
 
-}  // namespace sovranx::core
+}  // namespace reame::core

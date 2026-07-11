@@ -1,10 +1,10 @@
-#include "sovranx/core/conclave.hpp"
+#include "reame/core/conclave.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <set>
 
-namespace sovranx::core {
+namespace reame::core {
 
 namespace {
 
@@ -137,4 +137,4 @@ std::size_t elect(const std::vector<std::string>& candidates) {
     return best;
 }
 
-}  // namespace sovranx::core
+}  // namespace reame::core

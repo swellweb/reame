@@ -1,10 +1,10 @@
-#include "sovranx/server/http_types.hpp"
+#include "reame/server/http_types.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
 
-namespace sovranx::server {
+namespace reame::server {
 
 namespace {
 
@@ -102,4 +102,4 @@ std::string serialize_http_response(const HttpResponse& response) {
     return out;
 }
 
-}  // namespace sovranx::server
+}  // namespace reame::server

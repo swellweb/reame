@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace sovranx::cache {
+namespace reame::cache {
 
 // LRU byte store on disk. One file per entry
 // (<fnv64-of-key>.kvc: key header + payload); recency is tracked
@@ -53,4 +53,4 @@ private:
     std::uint64_t next_recency_ = 1;
 };
 
-}  // namespace sovranx::cache
+}  // namespace reame::cache

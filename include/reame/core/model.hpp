@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx {
+namespace reame {
 
 class Config;
 
@@ -78,4 +78,4 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace sovranx
+}  // namespace reame

@@ -7,11 +7,11 @@
 #include <filesystem>
 #include <vector>
 
-#include "sovranx/palimpsest/corpus_index.hpp"
+#include "reame/palimpsest/corpus_index.hpp"
 
 namespace fs = std::filesystem;
-using sovranx::TokenId;
-using sovranx::palimpsest::CorpusIndex;
+using reame::TokenId;
+using reame::palimpsest::CorpusIndex;
 
 namespace {
 
@@ -21,7 +21,7 @@ struct TempDir {
     fs::path path;
     TempDir() {
         path = fs::temp_directory_path() /
-               ("sovranx-corpus-test-" + std::to_string(counter++));
+               ("reame-corpus-test-" + std::to_string(counter++));
         fs::remove_all(path);
         fs::create_directories(path);
     }

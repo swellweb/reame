@@ -3,10 +3,10 @@
 #include <random>
 #include <vector>
 
-#include "sovranx/core/engine.hpp"
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/core/engine.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::core {
+namespace reame::core {
 
 // Token sampler: repeat penalty -> temperature -> top-p (nucleus) -> draw.
 // Pure w.r.t. the outside world (seeded RNG inside), so fully testable.
@@ -45,4 +45,4 @@ private:
     std::mt19937 rng_;
 };
 
-}  // namespace sovranx::core
+}  // namespace reame::core

@@ -1,4 +1,4 @@
-#include "sovranx/palimpsest/corpus_index.hpp"
+#include "reame/palimpsest/corpus_index.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -6,7 +6,7 @@
 #include <fstream>
 #include <unordered_map>
 
-namespace sovranx::palimpsest {
+namespace reame::palimpsest {
 
 namespace fs = std::filesystem;
 
@@ -210,4 +210,4 @@ std::size_t CorpusIndex::key_count() const { return pimpl_->index.size(); }
 std::size_t CorpusIndex::log_size() const { return pimpl_->log.size(); }
 void CorpusIndex::flush() { pimpl_->flush(); }
 
-}  // namespace sovranx::palimpsest
+}  // namespace reame::palimpsest

@@ -1,9 +1,9 @@
-#include "sovranx/core/autoconfig.hpp"
+#include "reame/core/autoconfig.hpp"
 
 #include <algorithm>
 #include <cctype>
 
-namespace sovranx::core {
+namespace reame::core {
 
 namespace {
 
@@ -68,10 +68,10 @@ int auto_threads(unsigned hw) {
     return static_cast<int>(hw) - 1;  // leave one for the OS/UI
 }
 
-SovranXEngine::Config auto_config(const std::string& model_path,
+ReameEngine::Config auto_config(const std::string& model_path,
                                   const std::string& home, unsigned hw,
                                   int ctx) {
-    SovranXEngine::Config c;
+    ReameEngine::Config c;
     c.model_path = model_path;
     c.n_threads = auto_threads(hw);
     c.n_ctx = ctx > 0 ? ctx : 4096;
@@ -81,17 +81,17 @@ SovranXEngine::Config auto_config(const std::string& model_path,
 
     std::string base;
     if (!home.empty()) {
-        base = home + "/.sovranx";
+        base = home + "/.reame";
     } else {
         // No home: sit next to the model, but never at the filesystem
         // root (a model at "/m.gguf" must not push the cache into "/").
         const auto slash = model_path.rfind('/');
         const std::string dir =
             slash == std::string::npos ? "" : model_path.substr(0, slash);
-        base = (dir.empty() ? "." : dir) + "/.sovranx";
+        base = (dir.empty() ? "." : dir) + "/.reame";
     }
     c.cache_dir = base + "/cache";
     return c;
 }
 
-}  // namespace sovranx::core
+}  // namespace reame::core

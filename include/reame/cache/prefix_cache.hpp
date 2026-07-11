@@ -4,10 +4,10 @@
 #include <string>
 #include <vector>
 
-#include "sovranx/cache/cache_manager.hpp"
-#include "sovranx/core/llama_backend.hpp"
+#include "reame/cache/cache_manager.hpp"
+#include "reame/core/llama_backend.hpp"
 
-namespace sovranx::cache {
+namespace reame::cache {
 
 // Shared-prefix KV cache: prompts are split into fixed token blocks and a
 // chain hash is computed per block boundary, so DIFFERENT prompts that
@@ -49,4 +49,4 @@ private:
     std::uint32_t block_tokens_;
 };
 
-}  // namespace sovranx::cache
+}  // namespace reame::cache

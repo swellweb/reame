@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace sovranx {
+namespace reame {
 
 using TokenId = std::int32_t;
 
@@ -100,4 +100,4 @@ public:
 // (submodule not initialized).
 std::unique_ptr<LlamaBackend> make_llama_backend(const ModelParams& params);
 
-}  // namespace sovranx
+}  // namespace reame

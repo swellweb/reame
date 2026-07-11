@@ -1,4 +1,4 @@
-// SovranX entry point. For this first step it only loads the configuration
+// Reame entry point. For this first step it only loads the configuration
 // and sets up logging; engine/server wiring lands in later steps.
 
 #include <csignal>
@@ -8,27 +8,27 @@
 #include <memory>
 #include <string>
 
-#include "sovranx/cache/cache_manager.hpp"
-#include "sovranx/core/autoconfig.hpp"
-#include "sovranx/core/engine.hpp"
-#include "sovranx/speculative/speculative_decoder.hpp"
-#include "sovranx/utils/config.hpp"
-#include "sovranx/utils/logger.hpp"
+#include "reame/cache/cache_manager.hpp"
+#include "reame/core/autoconfig.hpp"
+#include "reame/core/engine.hpp"
+#include "reame/speculative/speculative_decoder.hpp"
+#include "reame/utils/config.hpp"
+#include "reame/utils/logger.hpp"
 
 #include <cstdio>
 #include <filesystem>
 #include <thread>
 
-#ifdef SOVRANX_WITH_SERVER
+#ifdef REAME_WITH_SERVER
 #include <condition_variable>
 #include <mutex>
 
-#include "sovranx/server/http_server.hpp"
+#include "reame/server/http_server.hpp"
 #endif
 
 namespace {
 
-constexpr const char* kVersion = "0.1.1";
+constexpr const char* kVersion = "0.1.2";
 
 void print_usage(const char* argv0) {
     std::cerr
@@ -42,7 +42,7 @@ void print_usage(const char* argv0) {
         << "      advanced: run from a config file\n";
 }
 
-#ifdef SOVRANX_WITH_SERVER
+#ifdef REAME_WITH_SERVER
 std::condition_variable g_shutdown_cv;
 std::mutex g_shutdown_mutex;
 bool g_shutdown = false;
@@ -64,7 +64,7 @@ std::string home_dir() {
 // Downloads `url` to `dest` with curl if the file is not already there.
 // Returns true on success.
 bool ensure_downloaded(const std::string& url, const std::string& dest,
-                       sovranx::Logger& log) {
+                       reame::Logger& log) {
     if (std::filesystem::exists(dest)) return true;
     std::filesystem::create_directories(
         std::filesystem::path(dest).parent_path());
@@ -81,9 +81,9 @@ bool ensure_downloaded(const std::string& url, const std::string& dest,
     return true;
 }
 
-// `sovranx run <model> ["prompt"] [--serve]`.
+// `reame run <model> ["prompt"] [--serve]`.
 int run_zeroconfig(int argc, char** argv) {
-    sovranx::Logger log(std::cout, sovranx::LogLevel::Info);
+    reame::Logger log(std::cout, reame::LogLevel::Info);
     if (argc < 3) {
         std::cerr << "usage: " << argv[0] << " run <model> [\"prompt\"]\n";
         return EXIT_FAILURE;
@@ -97,12 +97,12 @@ int run_zeroconfig(int argc, char** argv) {
         else if (prompt.empty()) prompt = a;
     }
 
-    // Resolve: a catalog alias downloads to ~/.sovranx/models; anything
+    // Resolve: a catalog alias downloads to ~/.reame/models; anything
     // else is treated as a local GGUF path.
     std::string model_path;
-    const auto spec = sovranx::core::resolve_model(token);
+    const auto spec = reame::core::resolve_model(token);
     if (spec.has_value()) {
-        const std::string dir = home_dir() + "/.sovranx/models";
+        const std::string dir = home_dir() + "/.reame/models";
         model_path = dir + "/" + spec->filename;
         if (!ensure_downloaded(spec->url, model_path, log))
             return EXIT_FAILURE;
@@ -115,21 +115,21 @@ int run_zeroconfig(int argc, char** argv) {
     }
 
     const unsigned hw = std::thread::hardware_concurrency();
-    auto cfg = sovranx::core::auto_config(
+    auto cfg = reame::core::auto_config(
         model_path, home_dir(), hw, spec.has_value() ? spec->default_ctx : 0);
 
     try {
         log.info("loading model (" + std::to_string(cfg.n_threads) +
                  " threads)...");
         auto engine =
-            std::make_shared<sovranx::core::SovranXEngine>(cfg);
+            std::make_shared<reame::core::ReameEngine>(cfg);
         log.info("ready.");
 
         if (serve) {
-#ifdef SOVRANX_WITH_SERVER
-            sovranx::server::HttpServer::Config sc;
+#ifdef REAME_WITH_SERVER
+            reame::server::HttpServer::Config sc;
             sc.port = 8080;
-            sovranx::server::HttpServer server(sc, engine);
+            reame::server::HttpServer server(sc, engine);
             server.start();
             log.info("serving on http://127.0.0.1:8080 (Ctrl-C to stop)");
             std::signal(SIGINT, request_shutdown);
@@ -144,7 +144,7 @@ int run_zeroconfig(int argc, char** argv) {
 #endif
         }
 
-        sovranx::core::GenerationConfig gen;
+        reame::core::GenerationConfig gen;
         gen.max_tokens = 512;
         const auto stream = [](const std::string& piece) {
             std::cout << piece << std::flush;
@@ -176,24 +176,24 @@ int run_zeroconfig(int argc, char** argv) {
 }
 
 int list_models() {
-    std::cout << "Built-in models (sovranx run <name>):\n\n";
-    for (const auto& m : sovranx::core::model_catalog())
+    std::cout << "Built-in models (reame run <name>):\n\n";
+    for (const auto& m : reame::core::model_catalog())
         std::cout << "  " << m.name << "\n      " << m.note << "\n";
-    std::cout << "\nOr: sovranx run /path/to/your-model.gguf\n";
+    std::cout << "\nOr: reame run /path/to/your-model.gguf\n";
     return EXIT_SUCCESS;
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-    // Zero-config subcommands come first: `sovranx run <model>` / `list`.
+    // Zero-config subcommands come first: `reame run <model>` / `list`.
     if (argc >= 2) {
         const std::string sub = argv[1];
         if (sub == "run") return run_zeroconfig(argc, argv);
         if (sub == "list") return list_models();
     }
 
-    std::string config_path = "config/sovranx.conf";
+    std::string config_path = "config/reame.conf";
     std::string prompt;
     int max_tokens = 128;
     float temperature = 0.7f;
@@ -211,7 +211,7 @@ int main(int argc, char** argv) {
             continue;
         }
         if (arg == "--version" || arg == "-v") {
-            std::cout << "sovranx " << kVersion << "\n";
+            std::cout << "reame " << kVersion << "\n";
             return EXIT_SUCCESS;
         }
         if (arg == "--config" || arg == "-c" || arg == "--prompt" ||
@@ -235,17 +235,17 @@ int main(int argc, char** argv) {
     }
 
     try {
-        const auto cfg = sovranx::Config::load(config_path);
+        const auto cfg = reame::Config::load(config_path);
 
         const auto level =
-            sovranx::Logger::level_from_string(cfg.get_string("logging.level", "info"));
-        sovranx::Logger log(std::cout, level);
+            reame::Logger::level_from_string(cfg.get_string("logging.level", "info"));
+        reame::Logger log(std::cout, level);
 
-        log.info("sovranx " + std::string(kVersion) + " starting");
+        log.info("reame " + std::string(kVersion) + " starting");
         log.info("config loaded from " + config_path +
                  " (" + std::to_string(cfg.size()) + " keys)");
         log.info("model path: " + cfg.get_string("model.path", "<unset>"));
-#ifdef SOVRANX_WITH_SERVER
+#ifdef REAME_WITH_SERVER
         log.info("server: enabled (port " +
                  std::to_string(cfg.get_int("server.port", 8080)) + ")");
 #else
@@ -257,7 +257,7 @@ int main(int argc, char** argv) {
             return EXIT_SUCCESS;
         }
 
-        sovranx::core::SovranXEngine::Config engine_cfg;
+        reame::core::ReameEngine::Config engine_cfg;
         engine_cfg.model_path = cfg.get_string("model.path");
         engine_cfg.n_ctx =
             static_cast<int>(cfg.get_int("model.context_length", 4096));
@@ -299,7 +299,7 @@ int main(int argc, char** argv) {
 
         log.info("loading model...");
         auto engine =
-            std::make_shared<sovranx::core::SovranXEngine>(engine_cfg);
+            std::make_shared<reame::core::ReameEngine>(engine_cfg);
         log.info("model loaded (vocab " +
                  std::to_string(engine->vocab_size()) + ", ctx " +
                  std::to_string(engine->context_size()) + ")");
@@ -308,8 +308,8 @@ int main(int argc, char** argv) {
                      engine_cfg.draft_model_path + ")");
 
         if (serve) {
-#ifdef SOVRANX_WITH_SERVER
-            sovranx::server::HttpServer::Config sc;
+#ifdef REAME_WITH_SERVER
+            reame::server::HttpServer::Config sc;
             sc.host = cfg.get_string("server.host", "0.0.0.0");
             sc.port = static_cast<int>(cfg.get_int("server.port", 8080));
             sc.threads =
@@ -325,9 +325,9 @@ int main(int argc, char** argv) {
             sc.enable_request_logging =
                 cfg.get_bool("server.enable_request_logging", true);
             sc.api_key = cfg.get_string("server.api_key", "");
-            sc.model_id = cfg.get_string("server.model_id", "sovranx");
+            sc.model_id = cfg.get_string("server.model_id", "reame");
 
-            sovranx::server::HttpServer server(sc, engine);
+            reame::server::HttpServer server(sc, engine);
             server.start();
 
             std::signal(SIGINT, request_shutdown);
@@ -340,13 +340,13 @@ int main(int argc, char** argv) {
             server.stop();
             return EXIT_SUCCESS;
 #else
-            std::cerr << "error: sovranx was built without server support "
+            std::cerr << "error: reame was built without server support "
                          "(Boost/nlohmann-json missing at configure time)\n";
             return EXIT_FAILURE;
 #endif
         }
 
-        sovranx::core::GenerationConfig gen;
+        reame::core::GenerationConfig gen;
         gen.max_tokens = max_tokens;
         gen.temperature = temperature;
         if (best_of > 1) {
@@ -379,10 +379,10 @@ int main(int argc, char** argv) {
                      std::to_string(m->total_rejected_tokens) + ")");
         }
         return EXIT_SUCCESS;
-    } catch (const sovranx::core::EngineError& e) {
+    } catch (const reame::core::EngineError& e) {
         std::cerr << "engine error: " << e.what() << "\n";
         return EXIT_FAILURE;
-    } catch (const sovranx::ConfigError& e) {
+    } catch (const reame::ConfigError& e) {
         std::cerr << "config error";
         if (e.line() != 0) std::cerr << " (line " << e.line() << ")";
         std::cerr << ": " << e.what() << "\n";

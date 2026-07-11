@@ -7,14 +7,14 @@
 #include <vector>
 
 #include "../mock/llama_mock.hpp"
-#include "sovranx/core/scheduler.hpp"
+#include "reame/core/scheduler.hpp"
 
-using sovranx::SeqSlice;
-using sovranx::TokenId;
-using sovranx::test::MockBackend;
-using sovranx::core::EngineError;
-using sovranx::core::GenerationConfig;
-using sovranx::core::Scheduler;
+using reame::SeqSlice;
+using reame::TokenId;
+using reame::test::MockBackend;
+using reame::core::EngineError;
+using reame::core::GenerationConfig;
+using reame::core::Scheduler;
 
 namespace {
 

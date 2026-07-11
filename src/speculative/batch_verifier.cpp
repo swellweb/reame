@@ -1,10 +1,10 @@
-#include "sovranx/speculative/batch_verifier.hpp"
+#include "reame/speculative/batch_verifier.hpp"
 
 #include <utility>
 
-#include "sovranx/speculative/acceptance.hpp"
+#include "reame/speculative/acceptance.hpp"
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 namespace {
 
@@ -69,4 +69,4 @@ VerificationResult BatchVerifier::verify_batch(
     return result;
 }
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative

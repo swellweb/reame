@@ -1,11 +1,11 @@
-#include "sovranx/utils/config.hpp"
+#include "reame/utils/config.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <fstream>
 #include <sstream>
 
-namespace sovranx {
+namespace reame {
 
 namespace {
 
@@ -131,4 +131,4 @@ bool Config::get_bool(const std::string& key, bool def) const {
     return has(key) ? get_bool(key) : def;
 }
 
-}  // namespace sovranx
+}  // namespace reame

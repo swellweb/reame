@@ -1,8 +1,8 @@
-#include "sovranx/speculative/prompt_lookup.hpp"
+#include "reame/speculative/prompt_lookup.hpp"
 
 #include <algorithm>
 
-namespace sovranx::speculative {
+namespace reame::speculative {
 
 PromptLookup::PromptLookup(const Config& cfg) : cfg_(cfg) {}
 
@@ -37,4 +37,4 @@ std::vector<TokenId> PromptLookup::find_draft(
     return {};
 }
 
-}  // namespace sovranx::speculative
+}  // namespace reame::speculative
