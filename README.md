@@ -26,7 +26,7 @@ Reame's memory makes request #100 cost a fraction of request #1.
 | Privacy-bound work (legal, medical, public sector) | data never leaves your server — full sovereignty | Qwen2.5 7B |
 | Private code autocomplete (Continue.dev + OpenAI-compatible API) | line-level completion is a narrow task; code never leaves the laptop | Qwen2.5-Coder 1.5B |
 
-**What Reame is NOT for** — said plainly, because trust is built here: a
+**What Reame is NOT for**: a
 general-purpose ChatGPT replacement (frontier reasoning and broad knowledge
 need frontier parameter counts), agentic coding assistants, or creative
 long-form writing at scale. If your task needs a 100B-class brain, buy one;
