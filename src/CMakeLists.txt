@@ -17,6 +17,7 @@ add_library(reame_core STATIC
     core/scheduler.cpp
     core/autoconfig.cpp
     core/conclave.cpp
+    arca/resp.cpp
     speculative/acceptance.cpp
     speculative/draft_generator.cpp
     speculative/batch_verifier.cpp
