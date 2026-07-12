@@ -9,6 +9,8 @@ fallback for missing GPUs. Its thesis is simple:
 
 > **On a CPU, never compute the same thing twice.**
 
+![reame run demo: model catalog, one-line launch, streamed answer](docs/figures/demo.gif)
+
 ## What Reame is for
 
 Reame is built for **narrow, repetitive AI workloads over your own data, on
