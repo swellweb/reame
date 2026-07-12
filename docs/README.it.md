@@ -2,85 +2,108 @@
 
 # Reame
 
-Motore di inferenza CPU-only per LLM in formato GGUF (target: modelli 30B),
-progettato per VPS Contabo (18 vCPU, 96 GB RAM, 350 GB NVMe).
+**Server di inferenza LLM snello e interamente testato, costruito su
+[llama.cpp](https://github.com/ggml-org/llama.cpp) — pensato per l'hardware che
+hai già: vCPU condivise, free tier, macchine ARM a 2 core.**
 
-Combina due tecniche:
+Reame è costruito per la CPU economica come prima scelta, non come ripiego per
+la GPU assente. La tesi è semplice:
 
-1. **Speculative decoding** (ispirato a DSpark/DeepSeek): un modello draft
-   piccolo propone token, il modello target 30B li verifica in un singolo
-   passaggio batched.
-2. **Ottimizzazioni memoria** (ispirato a DwarfStar4/antirez): mmap del
-   modello, KV-cache persistente su NVMe (zstd + checksum + LRU) con riuso
-   dei prefissi di prompt tra riavvii, cap sulla RAM.
+> **Su una CPU, mai calcolare due volte la stessa cosa.**
 
-## Stack
+## A cosa serve
 
-- C++17, base [llama.cpp](https://github.com/ggerganov/llama.cpp) (integrazione nei prossimi step)
-- Boost.Asio (server HTTP), nlohmann/json (API), Zstandard (compressione)
-- CMake ≥ 3.16, flag AVX2/AVX-512 opzionali (solo x86_64)
-- Test: Catch2 v3 (via FetchContent) + CTest
+Carichi di lavoro **ristretti e ripetitivi sui tuoi dati, su hardware che già
+paghi** — il caso in cui la risposta sta nel contesto che fornisci, non nella
+conoscenza generale del modello. Lì un modello piccolo pareggia uno frontier
+(misurato: 100% di accuratezza in estrazione long-context con un 7B su una
+macchina ARM gratuita a 2 core) e la memoria di Reame rende la richiesta #100
+una frazione del costo della #1: estrazione e classificazione di documenti
+(RAG, fatture, ticket), pipeline batch notturne, feature AI in SaaS a margini
+sottili, lavoro vincolato alla privacy (legale, medico, PA), autocompletamento
+di codice privato.
 
-## Dipendenze
+**A cosa NON serve**: sostituire ChatGPT come tuttofare, assistenti di coding
+agentici, scrittura creativa lunga su larga scala. Se il task richiede un
+cervello da 100B, compralo.
 
-Il core (utils + test) compila senza dipendenze esterne. Il server richiede:
+## Come funziona
+
+- 🗂️ **KV cache persistente a prefissi condivisi** — i prefissi dei prompt sono
+  fotografati su disco (zstd, checksum, budget LRU) e riusati **tra prompt
+  diversi, riavvii e processi**. Un system prompt si paga una volta sola.
+- 📜 **Palimpsest: il server ricorda ciò che ha generato** — ogni generazione
+  completata alimenta un archivio n-gram su disco; le richieste future ne
+  pescano bozze a costo zero.
+- 🎭 **Il Suggeritore** — il constrained decoding usa la struttura per *vietare*
+  token; Reame la inverte e la usa per *proporli*: numerazioni, bullet e token
+  di formato sono speculati gratis anche su contenuto mai generato prima.
+- 🔮 **Speculative decoding autoregolante** — un modello draft *oppure* il
+  lookup n-gram a costo zero propone token; il target li verifica in un solo
+  passaggio batched. Reame *misura* se la speculazione rende sul tuo hardware
+  e la spegne da sola quando non rende.
+- 🏛️ **Il Conclave** — `--best-of N` genera N risposte in un unico batch
+  interlacciato (un solo prefill, clonato via copia KV) ed elegge la vincente
+  a maggioranza; al raggiungimento della maggioranza assoluta i ritardatari
+  vengono fermati. Corregge la varianza, non il bias: più accuratezza dal
+  modello che già fai girare, non un 1.5B che ragiona da 3B.
+- 👥 **Serving multi-utente interlacciato** — N generazioni concorrenti
+  avanzano insieme in batch multi-sequenza, condividendo ogni lettura dei
+  pesi (il costo dominante del decode CPU memory-bound).
+- 🌐 **API REST compatibile OpenAI** — `/v1/completions`,
+  `/v1/chat/completions` (col chat template del modello), streaming SSE,
+  sessioni, bearer auth, metriche.
+- ⚡ **CLI zero-config** — `reame run qwen2.5-1.5b` scarica il modello una
+  volta e sceglie da sé thread, quantizzazione KV e cache per l'host.
+
+I numeri (misurati, inclusi i risultati negativi) sono nel
+[README inglese](../README.md#measured-results).
+
+## Installazione
+
+**Homebrew** (macOS / Linux):
 
 ```bash
-# Debian/Ubuntu (VPS)
-sudo apt install build-essential cmake libboost-system-dev nlohmann-json3-dev libzstd-dev pkg-config
-
-# macOS (sviluppo)
-brew install cmake boost nlohmann-json zstd pkg-config
+brew tap swellweb/reame
+brew install reame
 ```
 
-Se le dipendenze server mancano, il build le segnala e disabilita il target
-server (equivalente a `--no-server`).
+**Binari precompilati** — Linux x64/arm64 e macOS arm64 nella
+[pagina release](https://github.com/swellweb/reame/releases)
+(dipendenza runtime: libzstd).
 
-## Setup iniziale
+## Avvio rapido
 
 ```bash
-git clone <repo-url> && cd Reame
+reame list                                  # catalogo modelli + cosa c'è su disco
+reame run qwen2.5-1.5b                      # download una tantum, auto-config, chat
+reame run qwen2.5-1.5b "Spiega mmap"        # risposta one-shot
+reame run qwen2.5-1.5b --serve              # API compatibile OpenAI su :8080
+reame run qwen2.5-1.5b "12*13-50?" --best-of 5   # il Conclave
+```
+
+## Compilazione dai sorgenti
+
+```bash
+git clone https://github.com/swellweb/reame
+cd reame
 git submodule update --init --depth 1 third_party/llama.cpp
-```
+./build.sh                       # Release + suite di test completa
 
-Senza il submodule il progetto compila comunque (warning a configure-time),
-ma il caricamento modelli fallisce a runtime con messaggio esplicativo.
+./scripts/download_models.sh     # TinyLlama (modello di test, ~670 MB)
 
-Modelli di test (GGUF, in `models/`, gitignorata):
-
-```bash
-./scripts/download_models.sh              # TinyLlama 1.1B (~670 MB, per i test)
-./scripts/download_models.sh --spec-pair  # Qwen2.5 1.5B+0.5B (test speculative)
-./scripts/download_models.sh --7b         # + Qwen2.5 7B (~4.7 GB)
-```
-
-## Compilazione
-
-```bash
-./build.sh                 # Release + test
-./build.sh --debug         # build Debug
-./build.sh --clean         # ricompila da zero
-./build.sh --no-tests      # senza test
-./build.sh --avx512        # abilita AVX-512 (CPU che lo supporta)
-./build.sh --no-server     # solo core, senza dipendenze server
-```
-
-Oppure manualmente:
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-```
-
-## Esecuzione
-
-```bash
-# Generazione one-shot da CLI
-./build/src/reame --config config/reame.conf --prompt "Ciao" --max-tokens 64
-
-# Server HTTP (API REST compatibile OpenAI)
+./build/src/reame --config config/reame.conf --prompt "Ciao" --max-tokens 32
 ./build/src/reame --config config/reame.conf --serve
+```
+
+Dipendenze: CMake ≥ 3.16, compilatore C++17 e, per il server, Boost (header),
+nlohmann-json e zstd:
+
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential cmake libboost-dev nlohmann-json3-dev libzstd-dev pkg-config
+# macOS
+brew install cmake boost nlohmann-json zstd pkg-config
 ```
 
 ### API
@@ -94,44 +117,14 @@ ctest --test-dir build --output-on-failure
 | `POST /v1/sessions` · `.../save` · `.../load` · `DELETE .../{id}` | sessioni KV |
 | `GET /metrics` | contatori server + metriche speculative |
 
-Con `server.api_key` impostata serve `Authorization: Bearer <key>` (tranne `/health`).
-
-```bash
-curl http://localhost:8080/v1/completions \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "La capitale d'\''Italia è", "max_tokens": 16}'
-```
-
-Configurazione: vedi [config/reame.conf](config/reame.conf) (formato INI,
-chiavi lette come `sezione.chiave`).
-
-## Struttura
-
-```
-Reame/
-├── CMakeLists.txt          # build principale
-├── build.sh                # script di build
-├── cmake/                  # moduli CMake (flag compilatore, SIMD)
-├── config/reame.conf     # configurazione di esempio
-├── include/reame/        # header pubblici
-│   └── utils/              # Config, Logger
-├── src/
-│   ├── main.cpp            # entry point
-│   ├── core/               # LlamaModel, engine, sampler, backend llama.cpp
-│   ├── speculative/        # draft generator, batch verifier, decoder
-│   ├── cache/              # KV-cache su NVMe: serializer, store LRU, manager
-│   ├── memory/             # ottimizzazioni memoria (prossimi step)
-│   ├── server/             # parser HTTP, API handler, server Asio
-│   └── utils/              # config parser, logger
-├── tests/
-│   ├── unit/               # test isolati (Catch2)
-│   └── mock/               # MockBackend (llama.cpp mockato)
-├── scripts/                # download_models.sh
-└── third_party/llama.cpp   # submodule (pinnato)
-```
+Con `server.api_key` impostata serve `Authorization: Bearer <key>`
+(tranne `/health`). Configurazione: [config/reame.conf](../config/reame.conf)
+(formato INI, chiavi lette come `sezione.chiave`) — con il default
+`mode = lookup` basta un solo file GGUF.
 
 ## Sviluppo (TDD)
 
-Ogni unità ha il suo test isolato in `tests/unit/` (dipendenze mockate,
-nessun filesystem/rete nei test). Ciclo: test RED → implementazione GREEN →
-lint → commit.
+Ogni unità ha il suo test isolato in `tests/unit/` (dipendenze mockate).
+Ciclo: test RED → implementazione GREEN → lint → commit. I benchmark nel
+README sono prodotti dal binario spedito sull'hardware dichiarato; anche i
+risultati negativi vengono documentati.
