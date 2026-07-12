@@ -195,7 +195,7 @@ enabled = true
 mode = lookup              # model (needs draft_model_path) | lookup (no 2nd model)
 
 [cache]
-directory = /opt/reame/cache
+directory = .reame-cache
 max_size_mb = 4096         # LRU byte budget on disk
 
 [server]
