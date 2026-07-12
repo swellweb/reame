@@ -24,8 +24,7 @@ sottili, lavoro vincolato alla privacy (legale, medico, PA), autocompletamento
 di codice privato.
 
 **A cosa NON serve**: sostituire ChatGPT come tuttofare, assistenti di coding
-agentici, scrittura creativa lunga su larga scala. Se il task richiede un
-cervello da 100B, compralo.
+agentici, scrittura creativa lunga su larga scala.
 
 ## Come funziona
 
