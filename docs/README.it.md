@@ -81,6 +81,16 @@ reame run qwen2.5-1.5b --serve              # API compatibile OpenAI su :8080
 reame run qwen2.5-1.5b "12*13-50?" --best-of 5   # il Conclave
 ```
 
+Un task di giudizio vero — il modello fa l'audit di una pagina live dal suo
+HTML grezzo (l'`head -c` serve solo a stare nel contesto; l'audit è tutto
+del modello):
+
+```bash
+reame run qwen3.5-9b "Audit SEO veloce dell'HTML di questa pagina — qualità \
+di title e meta, problemi di heading, immagini senza alt, tre fix concreti:
+$(curl -s https://tuo-sito.it | head -c 16000)"
+```
+
 ## Compilazione dai sorgenti
 
 ```bash

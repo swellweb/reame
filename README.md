@@ -27,6 +27,7 @@ Reame's memory makes request #100 cost a fraction of request #1.
 | AI features inside a thin-margin SaaS | a €5 VPS instead of a metered API keeps unit economics alive | Qwen2.5 1.5B–7B |
 | Privacy-bound work (legal, medical, public sector) | data never leaves your server — full sovereignty | OLMoE 7B-A1B |
 | Private code autocomplete (Continue.dev + OpenAI-compatible API) | line-level completion is a narrow task; code never leaves the laptop | Qwen2.5-Coder 1.5B |
+| Judgment on your data (SEO/content audits, review triage) — in batches | needs real reasoning: we measured smaller models inventing findings; the 9B audited a live page correctly in 73s on a laptop | Qwen3.5-9B |
 
 **What Reame is NOT for**: a
 general-purpose ChatGPT replacement (frontier reasoning and broad knowledge
@@ -141,6 +142,15 @@ reame run qwen2.5-1.5b "12*13-50?" --best-of 5   # the Conclave
 `run` resolves a catalog name (or any local GGUF path), downloads to
 `~/.reame/models` on first use and picks threads, KV quantization and cache
 directory for the host. A config file is only needed when you want control.
+
+A real judgment task — the model audits a live page from its raw HTML (the
+`head -c` only fits it into context; the audit is all the model's):
+
+```bash
+reame run qwen3.5-9b "Quick SEO audit of this page's HTML — title/meta \
+quality, heading issues, images missing alt text, three concrete fixes:
+$(curl -s https://your-site.com | head -c 16000)"
+```
 
 ## Install
 
