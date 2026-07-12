@@ -35,6 +35,12 @@ struct Scheduler::Impl {
     std::uint32_t n_ctx;
 
     mutable std::mutex mutex;
+    // Completion state lives under its OWN mutex: finished()/error() must
+    // never contend with the main mutex, which step() holds for the whole
+    // batched decode — on loaded machines that contention starves waiters
+    // (unfair mutexes let the stepping loop re-acquire forever) and
+    // cross-thread signals like the conclave's early stop never land.
+    mutable std::mutex done_mutex;
     std::deque<Request> pending;
     std::vector<Request> active;        // at most cfg.n_parallel
     std::vector<bool> slot_used;        // seq_id occupancy
@@ -58,6 +64,7 @@ struct Scheduler::Impl {
             backend.clear_seq(r.seq_id);
             slot_used[static_cast<std::size_t>(r.seq_id)] = false;
         }
+        std::lock_guard<std::mutex> done_lock(done_mutex);
         done[r.id] = std::move(err);
     }
 
@@ -221,12 +228,12 @@ void Scheduler::run_until_idle() {
 }
 
 bool Scheduler::finished(std::uint64_t id) const {
-    std::lock_guard<std::mutex> lock(pimpl_->mutex);
+    std::lock_guard<std::mutex> lock(pimpl_->done_mutex);
     return pimpl_->done.find(id) != pimpl_->done.end();
 }
 
 std::exception_ptr Scheduler::error(std::uint64_t id) const {
-    std::lock_guard<std::mutex> lock(pimpl_->mutex);
+    std::lock_guard<std::mutex> lock(pimpl_->done_mutex);
     const auto it = pimpl_->done.find(id);
     return it == pimpl_->done.end() ? nullptr : it->second;
 }
