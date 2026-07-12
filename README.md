@@ -29,9 +29,7 @@ Reame's memory makes request #100 cost a fraction of request #1.
 **What Reame is NOT for**: a
 general-purpose ChatGPT replacement (frontier reasoning and broad knowledge
 need frontier parameter counts), agentic coding assistants, or creative
-long-form writing at scale. If your task needs a 100B-class brain, buy one;
-if it needs *your documents processed privately, forever, at zero marginal
-cost* — that's a realm you can own.
+long-form writing at scale. If your task needs a 100B-class brain, buy one. Reame is for processing your own documents, privately, at zero marginal cost.
 
 - 🗂️ **Persistent shared-prefix KV cache** — prompt prefixes are snapshotted to disk
   (zstd, checksummed, LRU-budgeted) and reused **across different prompts, restarts
