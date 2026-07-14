@@ -1,0 +1,19 @@
+Reame
+Copyright (c) 2026 Marco Caciotti
+
+This product is licensed under the MIT License (see LICENSE).
+
+The copyright holder retains the right to relicense the project and to offer
+it under additional terms (e.g. a commercial or copyleft license) in the
+future. Contributions are accepted under the terms in CONTRIBUTING.md, which
+grant that right; every contribution also remains available under MIT.
+
+------------------------------------------------------------------------------
+Third-party components
+------------------------------------------------------------------------------
+
+Reame is built on llama.cpp (https://github.com/ggml-org/llama.cpp), included
+as a git submodule under third_party/llama.cpp and licensed under the MIT
+License. All tensor kernels and GGUF handling come from llama.cpp; Reame adds
+the memory layer, serving, and orchestration on top. llama.cpp is not modified
+in place and keeps its own license.
