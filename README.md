@@ -224,6 +224,7 @@ parallel = 1               # >1 = interleaved multi-user serving
 | `POST /v1/chat/completions` | chat completion |
 | `POST /v1/sessions` · `.../save` · `.../load` · `DELETE .../{id}` | KV session snapshots |
 | `GET /metrics` | request counters + speculative/cache metrics |
+| `POST /v1/warm` | pre-prefill a prompt into the cache (warm-ahead) |
 | `GET /health` | liveness (auth-exempt) |
 
 ## Status & scope

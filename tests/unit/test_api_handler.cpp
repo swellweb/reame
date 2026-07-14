@@ -156,6 +156,25 @@ TEST_CASE("completions returns the generated text with usage") {
     CHECK(resp.header("Content-Type") == "application/json");
 }
 
+TEST_CASE("POST /v1/warm prefills and reports the token count") {
+    Fixture f;
+    f.mock->tokenize_result = {1, 2, 3, 4};  // prompt -> 4 tokens
+
+    const json body{{"prompt", "a document to pre-warm"}};
+    const auto resp = f.handler->handle(request("POST", "/v1/warm", body.dump()));
+
+    REQUIRE(resp.status == 200);
+    const auto j = json::parse(resp.body);
+    CHECK(j["warmed"] == true);
+    CHECK(j["tokens"] == 4);
+}
+
+TEST_CASE("POST /v1/warm rejects a missing prompt and the wrong method") {
+    Fixture f;
+    CHECK(f.handler->handle(request("POST", "/v1/warm", "{}")).status == 400);
+    CHECK(f.handler->handle(request("GET", "/v1/warm", "")).status == 405);
+}
+
 TEST_CASE("completions honours max_tokens from the request") {
     Fixture f;
     f.mock->decode_queue.clear();

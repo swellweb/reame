@@ -251,6 +251,38 @@ struct ApiHandler::Impl {
         }
     }
 
+    // ---- Warm-ahead ----------------------------------------------------
+
+    void handle_warm(const HttpRequest& r, ResponseWriter& w) {
+        json body;
+        try {
+            body = json::parse(r.body);
+        } catch (const json::exception&) {
+            respond(w, 400,
+                    error_json("request body is not valid JSON",
+                               "invalid_request_error", "invalid_json"));
+            return;
+        }
+        if (!body.contains("prompt") || !body["prompt"].is_string()) {
+            respond(w, 400,
+                    error_json("'prompt' (string) is required",
+                               "invalid_request_error", "missing_prompt"));
+            return;
+        }
+        const std::string prompt = body["prompt"].get<std::string>();
+        try {
+            std::unique_lock<std::mutex> lock(engine_mutex, std::defer_lock);
+            if (!engine.parallel_capable()) lock.lock();
+            const int tokens = engine.warm(prompt);
+            respond(w, 200, json{{"warmed", true}, {"tokens", tokens}});
+        } catch (const core::EngineError& e) {
+            respond(w, 400,
+                    error_json(e.what(), "invalid_request_error", "warm_failed"));
+        } catch (const std::exception& e) {
+            respond(w, 500, error_json(e.what(), "server_error", "internal"));
+        }
+    }
+
     // ---- Sessions ------------------------------------------------------
 
     void handle_sessions(const HttpRequest& r, ResponseWriter& w) {
@@ -379,6 +411,17 @@ struct ApiHandler::Impl {
                 return;
             }
             handle_generation(r, w, r.target == "/v1/chat/completions");
+            return;
+        }
+
+        if (r.target == "/v1/warm") {
+            if (r.method != "POST") {
+                respond(w, 405,
+                        error_json("method not allowed",
+                                   "invalid_request_error", "bad_method"));
+                return;
+            }
+            handle_warm(r, w);
             return;
         }
 

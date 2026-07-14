@@ -513,6 +513,24 @@ std::string ReameEngine::format_chat(
     return pimpl_->backend->format_chat(messages);
 }
 
+int ReameEngine::warm(const std::string& prompt) {
+    LlamaBackend& backend = *pimpl_->backend;
+    std::vector<TokenId> tokens = backend.tokenize(prompt, /*add_special=*/true);
+    if (tokens.empty())
+        throw EngineError("prompt tokenized to zero tokens");
+    const auto n_ctx = static_cast<std::size_t>(backend.context_length());
+    if (tokens.size() > n_ctx)
+        throw EngineError("prompt of " + std::to_string(tokens.size()) +
+                          " tokens exceeds context length " +
+                          std::to_string(n_ctx));
+
+    // Prefill the whole prompt into the disk cache, snapshotting every
+    // block boundary — exactly the boundaries a later completion restores.
+    if (pimpl_->prefix_cache != nullptr)
+        pimpl_->prefix_cache->prefill(tokens, backend);
+    return static_cast<int>(tokens.size());
+}
+
 int ReameEngine::context_size() const {
     return static_cast<int>(pimpl_->backend->context_length());
 }
