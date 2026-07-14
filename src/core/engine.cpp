@@ -1,6 +1,8 @@
 #include "reame/core/engine.hpp"
 
 #include <atomic>
+#include <cstdio>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <utility>
@@ -10,6 +12,7 @@
 #include <filesystem>
 #include <thread>
 
+#include "reame/core/arca_cache.hpp"
 #include "reame/cache/cache_manager.hpp"
 #include "reame/cache/prefix_cache.hpp"
 #include "reame/core/conclave.hpp"
@@ -95,6 +98,7 @@ struct ReameEngine::Impl {
     std::unique_ptr<cache::PrefixCache> prefix_cache;
     std::unique_ptr<palimpsest::CorpusIndex> corpus;
     std::string model_tag;  // discriminates cache entries across models
+    ArcaCache* arca = nullptr;  // transparent exact-response cache (not owned)
 
     // Parallel (interleaved) serving: one worker thread drives the
     // scheduler; generate_stream() submits and blocks until its request
@@ -172,6 +176,7 @@ ReameEngine::ReameEngine(const Config& config,
     pimpl_ = std::make_unique<Impl>();
     pimpl_->backend = std::move(backend);
     pimpl_->model_tag = config.model_path;
+    pimpl_->arca = config.arca;
     if (config.n_parallel > 1) {
         pimpl_->scheduler = std::make_unique<Scheduler>(
             *pimpl_->backend, Scheduler::Config{config.n_parallel});
@@ -220,8 +225,30 @@ ReameEngine::~ReameEngine() = default;
 ReameEngine::ReameEngine(ReameEngine&&) noexcept = default;
 ReameEngine& ReameEngine::operator=(ReameEngine&&) noexcept = default;
 
+namespace {
+
+// A stable key for the transparent cache. Only deterministic requests are
+// cacheable — a sampled generation replayed from cache would silently
+// void the temperature. The key folds in everything that changes a greedy
+// output: model, prompt, and the token budget.
+bool cacheable(const GenerationConfig& g) { return g.temperature <= 0.0f; }
+
+std::string cache_key(const std::string& model_tag, const std::string& prompt,
+                      const GenerationConfig& g) {
+    const std::string material = model_tag + "\x1f" + std::to_string(g.max_tokens) +
+                                 "\x1f" + prompt;
+    const std::size_t h = std::hash<std::string>{}(material);
+    char buf[24];
+    std::snprintf(buf, sizeof(buf), "resp:%016zx", h);
+    return buf;
+}
+
+}  // namespace
+
 std::string ReameEngine::generate(const std::string& prompt,
                                     const GenerationConfig& gen_config) {
+    // generate_stream applies the transparent ARCA cache; generate() gets
+    // it for free by going through it.
     std::string out;
     generate_stream(
         prompt,
@@ -321,6 +348,37 @@ void ReameEngine::generate_stream(
     if (!callback)
         throw EngineError("callback is null");
 
+    // Transparent ARCA: a deterministic, non-echo request may already be
+    // answered. echo_prompt is excluded because the cache stores only the
+    // completion, not the echoed prompt.
+    const bool use_arca = pimpl_->arca != nullptr &&
+                          cacheable(gen_config) && !gen_config.echo_prompt;
+    if (!use_arca) {
+        generate_stream_impl(prompt, callback, gen_config);
+        return;
+    }
+
+    const std::string key = cache_key(pimpl_->model_tag, prompt, gen_config);
+    if (auto hit = pimpl_->arca->get(key)) {
+        callback(*hit);  // the whole cached completion, one piece
+        return;
+    }
+
+    std::string accumulated;
+    generate_stream_impl(
+        prompt,
+        [&](const std::string& piece) {
+            accumulated += piece;
+            return callback(piece);
+        },
+        gen_config);
+    pimpl_->arca->set(key, accumulated);
+}
+
+void ReameEngine::generate_stream_impl(
+    const std::string& prompt,
+    const std::function<bool(const std::string& token)>& callback,
+    const GenerationConfig& gen_config) {
     LlamaBackend& backend = *pimpl_->backend;
 
     std::vector<TokenId> tokens = backend.tokenize(prompt, /*add_special=*/true);

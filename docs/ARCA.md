@@ -118,16 +118,40 @@ shares one archive: a system prompt prefilled by node A is a cache hit for B
 and C; a generation observed by A drafts for the others. The archive gets more
 valuable the longer the fleet runs.
 
-## 5. What's automatic today, and what's next
+## 5. Transparent caching — one config line
 
-**Today**: ARCA is a daemon you run and talk to from your app (or from a thin
-wrapper around Reame's OpenAI-compatible API). The response-cache pattern above
-is a dozen lines.
+You don't have to write the cache-check glue: point a Reame server at a
+running ARCA and deterministic requests are cached automatically.
 
-**Roadmap — transparent integration**: Reame's engine will check a configured
-ARCA before generating and populate it after, so a single `[arca] remote =
-host:6420` line in the config gets you fleet-shared caching with no glue code.
-That is the next build after this guide.
+On the ARCA box:
 
-Until then: the daemon works, it's Redis-compatible, and it's proven on real
-hardware — the glue is a few lines in whatever already calls Reame.
+```bash
+reame arca --dir ~/.reame/arca
+```
+
+In each Reame node's config:
+
+```ini
+[arca]
+remote = 10.0.0.5:6420
+```
+
+Now every **deterministic** (`temperature = 0`) completion checks ARCA before
+running the model and populates it after — no code, no glue. Measured
+end-to-end: an identical greedy completion is served from ARCA on the second
+request, the model never runs, byte-identical output.
+
+Notes:
+
+- Only deterministic requests are cached. A sampled (`temperature > 0`) request
+  runs the model every time — replaying a cached sample would silently void the
+  temperature.
+- If the archive is unreachable or slow, the node degrades to plain generation
+  — a down ARCA removes the speedup, never the service.
+- Streaming (SSE) responses are cached transparently too: a hit is emitted as
+  one chunk.
+
+## What's next
+
+- L2 semantic cache — matching *similar* questions, not just identical ones.
+- Auto-sync of L4 into each node's local speculative decoder.

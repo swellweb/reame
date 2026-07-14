@@ -23,6 +23,7 @@
 #include <condition_variable>
 #include <mutex>
 
+#include "reame/arca/client.hpp"
 #include "reame/arca/server.hpp"
 #include "reame/server/http_server.hpp"
 #endif
@@ -389,6 +390,27 @@ int main(int argc, char** argv) {
             engine_cfg.use_speculative = false;
             engine_cfg.use_prompt_lookup = false;
             engine_cfg.cache_dir.clear();
+        }
+
+        // Transparent ARCA: [arca] remote = host:port wires the engine to a
+        // shared archive. Deterministic requests then hit it before running
+        // the model. The client outlives the engine and degrades quietly if
+        // the archive is down.
+        std::unique_ptr<reame::arca::ArcaClient> arca_client;
+        const std::string arca_remote = cfg.get_string("arca.remote", "");
+        if (!arca_remote.empty()) {
+            const auto colon = arca_remote.rfind(':');
+            reame::arca::ArcaClient::Config ac;
+            if (colon != std::string::npos) {
+                ac.host = arca_remote.substr(0, colon);
+                ac.port = std::stoi(arca_remote.substr(colon + 1));
+            } else {
+                ac.host = arca_remote;
+            }
+            arca_client = std::make_unique<reame::arca::ArcaClient>(ac);
+            engine_cfg.arca = arca_client.get();
+            log.info("transparent ARCA cache: " + ac.host + ":" +
+                     std::to_string(ac.port));
         }
 
         // Fail fast on missing model files (main AND draft) with a clear

@@ -61,8 +61,10 @@ long-form writing at scale.
 - 🏰 **ARCA: the shared memory daemon** — `reame arca` starts a Redis-compatible
   service any language's Redis client reaches with zero SDK: an exact-response
   cache (a computed answer served in ~0.02 s vs ~1 s of inference) and a
-  fleet-wide generation corpus (one node's output drafts the others'). Proven
-  on a free ARM box with real `redis-cli`. See [docs/ARCA.md](docs/ARCA.md).
+  fleet-wide generation corpus (one node's output drafts the others'). One
+  config line — `[arca] remote = host:6420` — wires a Reame node to it, and
+  deterministic requests are cached automatically. Proven on a free ARM box
+  with real `redis-cli`. See [docs/ARCA.md](docs/ARCA.md).
 - 🌐 **OpenAI-compatible REST API** — `/v1/completions`, `/v1/chat/completions`,
   SSE streaming, sessions, bearer auth, metrics. Point any OpenAI client at it.
 - ⚡ **Zero-config CLI** — `reame run qwen2.5-1.5b` downloads the model once,
@@ -259,9 +261,8 @@ speculated for free. That property is the whole design.
 
 Reame is free, MIT-licensed and built on nights and free-tier hardware. If it
 saves you API bills or GPU rent, consider [sponsoring](https://github.com/sponsors/swellweb)
-the work — sponsorships fund the roadmap: transparent ARCA integration (Reame
-auto-using the [shared memory daemon](docs/ARCA.md)), warm-ahead prefill, and
-first-class MoE serving.
+the work — sponsorships fund the roadmap: warm-ahead prefill, a semantic (L2)
+cache layer for the [ARCA daemon](docs/ARCA.md), and first-class MoE serving.
 
 ## Acknowledgments
 

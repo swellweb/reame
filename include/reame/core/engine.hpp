@@ -18,6 +18,8 @@ struct CacheStats;
 
 namespace reame::core {
 
+class ArcaCache;
+
 class EngineError : public std::runtime_error {
 public:
     using std::runtime_error::runtime_error;
@@ -75,6 +77,12 @@ public:
         // and the disk cache for now — the constructor rejects the combo.
         int n_parallel = 1;
         bool verbose = false;
+        // Transparent ARCA: when set, deterministic (greedy) generations
+        // consult this exact-response cache before running the model and
+        // populate it after. Not owned; must outlive the engine. Null =
+        // no transparent caching. A down cache degrades to plain
+        // generation, never an error.
+        ArcaCache* arca = nullptr;
     };
 
     // Production: loads the model(s) through the real llama.cpp backend.
@@ -149,6 +157,14 @@ public:
     bool parallel_capable() const;
 
 private:
+    // The actual generation loop. The public generate_stream wraps it with
+    // the transparent ARCA cache (hit → emit and skip; miss → run, then
+    // populate).
+    void generate_stream_impl(
+        const std::string& prompt,
+        const std::function<bool(const std::string& token)>& callback,
+        const GenerationConfig& gen_config);
+
     struct Impl;
     std::unique_ptr<Impl> pimpl_;
 };
