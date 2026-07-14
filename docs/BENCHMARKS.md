@@ -36,6 +36,8 @@ whole ballgame.
 | Oracle free (4 core) | Qwen3-30B-A3B | MoE, 3B active | ~335 s/question | batch only |
 | Oracle free (4 core) | Qwen3.6-27B | dense | **~0.1 tok/s** | unusable here |
 | Oracle free (4 core) | Ornith-1.0-9B (Qwen3.5-9B finetune) | dense | 5.4 tok/s | usable for batch judgment |
+| Oracle free (4 core) | Gemma 4 E2B | dense, 2B effective | 18.2 tok/s | 8/8 needle, 3.3 GB — best small |
+| Oracle free (4 core) | Gemma 4 E4B | dense, 4B effective | 10.1 tok/s | verbose, no gain over E2B |
 | M3 Pro | Qwen2.5-1.5B | dense | 52 tok/s | laptop default |
 | M3 Pro | Qwen3.5-9B | dense | 16.6 tok/s | judgment tasks |
 
