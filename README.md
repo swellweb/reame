@@ -74,24 +74,15 @@ long-form writing at scale.
 Every number below was produced by the shipped binary on the hardware named —
 including the negative results that shaped the design.
 
-| Hardware | Model | Configuration | Result |
-|---|---|---|---|
-| Oracle Cloud **free tier** (2× ARM, 12 GB, €0/mo) | Qwen2.5-7B Q4_K_M | plain, KV q8_0 | **3.3 tok/s** |
-| Oracle Cloud free tier | TriLM 3.9B ternary TQ2_0 | 1.1 GB total RAM | **~10 tok/s** |
-| Apple M3 Pro (6 threads) | Qwen2.5-1.5B Q4_K_M | plain | **52 tok/s** |
-| Shared Contabo VPS (18 oversubscribed vCPUs) | 1.5B + 0.5B draft | speculative, 87% acceptance | **3.2× speedup** |
-| Shared Contabo VPS | TinyLlama 1.1B | warm disk cache vs cold | **4.8× end-to-end** |
-| Apple M3 Pro | Qwen2.5-1.5B | prompt-lookup on a rewrite task | **1.44×** |
-| Apple M3 Pro | TinyLlama, 3 concurrent users | interleaved vs serialized | **1.6×** |
-| Apple M3 Pro | Qwen2.5-1.5B, repeated request | archive speculation (palimpsest) | **2.3×** (22→51 tok/s) |
-| Apple M3 Pro | Qwen2.5-1.5B, fresh list generation | form drafting (suggeritore) | **2.1×** (4.4s→2.1s) |
-| Apple M3 Pro | Qwen2.5-1.5B ×5 candidates | Conclave: shared prefill + early consensus + fast nucleus | 8-question quiz wall **97s → ~50s** |
-| Apple M3 Pro | Qwen2.5-1.5B `--best-of 5` vs single | 3 arithmetic quizzes, strict grading | **+0.5 to +2 correct**, ~2.5× wall (not 5×) |
-| Oracle Cloud free tier | **OLMoE 7B-A1B (MoE)** vs dense 7B | same 8-needle long-context test | **100% accuracy both · 17.8 vs 3.3 tok/s (5.4×)** |
-| Oracle Cloud free tier (resized: 4 OCPU, 24 GB) | OLMoE 7B-A1B | 3 threads after the free-tier max resize | **26.7 tok/s** |
-| Oracle Cloud free tier (4 OCPU, 24 GB) | Qwen3-30B-A3B Q4_K_M | same 8-needle test | 8/8 — but **~335s/question vs ~35s** for OLMoE |
-| Apple M3 Pro (6 threads) | Qwen3.5-9B Q4_K_M | plain decode | **16.6 tok/s** |
-| Apple M3 Pro | Qwen3.5-9B vs 1.5B/OLMoE/30B-A3B | SEO audit of a live page (judgment) | 9B: **only model with zero invented findings**, full audit in **73s** |
+| Highlight | Measured | Machine |
+|---|---|---|
+| MoE beats dense on CPU | OLMoE 7B-A1B **26.7 tok/s** vs dense 7B 3.3 tok/s, same 8/8 accuracy | Oracle free (€0) |
+| Warm cache vs cold | **4.8× end-to-end** | Contabo VPS |
+| Generation archive (Palimpsest) | **2.3×** (22→51 tok/s) | M3 Pro |
+| Judgment without hallucinating | Qwen3.5-9B: **zero invented findings**, full SEO audit in 73s | M3 Pro |
+| Architecture > size | dense 27B **~0.1 tok/s** — 250× slower than a 7B MoE, same box | Oracle free |
+
+**[Full benchmarks, methodology and negative results → docs/BENCHMARKS.md](docs/BENCHMARKS.md)**
 
 Three negative results that matter. A 30B-class MoE on the maxed free tier answered the same extraction questions perfectly — and ten times slower than a 7B-A1B that also scored 100%: when the answer lives in the context, extra parameters buy nothing (MoE prefill touches nearly every expert, so the 3B-active discount vanishes on document reading). Use 30B-class models for hard reasoning in background batches, not for serving. On heavily oversubscribed shared vCPUs a draft
 model runs as slowly as its target, so speculation is counter-productive there —
