@@ -16,6 +16,7 @@
 
 #include "../mock/llama_mock.hpp"
 #include "reame/cache/cache_manager.hpp"
+#include "reame/core/arca_cache.hpp"
 #include "reame/core/engine.hpp"
 #include "reame/speculative/speculative_decoder.hpp"
 
@@ -386,6 +387,86 @@ TEST_CASE("conclave: parallel attempts elect a consensus answer") {
     ReameEngine engine(cfg, std::move(backend));
     CHECK(engine.generate_best("hi", greedy(), 3) == "xy");
     CHECK_FALSE(mock->decode_seqs_calls.empty());  // attempts interleaved
+}
+
+// --- Transparent ARCA cache ------------------------------------------------
+
+namespace {
+
+// Records calls; returns a canned hit when `canned` is set.
+class MockArca : public reame::core::ArcaCache {
+public:
+    std::optional<std::string> canned;
+    std::vector<std::string> get_calls;
+    std::vector<std::pair<std::string, std::string>> set_calls;
+
+    std::optional<std::string> get(const std::string& key) override {
+        get_calls.push_back(key);
+        return canned;
+    }
+    void set(const std::string& key, const std::string& value) override {
+        set_calls.emplace_back(key, value);
+    }
+};
+
+}  // namespace
+
+TEST_CASE("arca cache: a deterministic hit skips the model entirely") {
+    auto cfg = valid_config();
+    MockArca arca;
+    arca.canned = "the cached answer";
+    cfg.arca = &arca;
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    script_foobar(mock);
+    ReameEngine engine(cfg, std::move(backend));
+
+    CHECK(engine.generate("hi", greedy()) == "the cached answer");
+    REQUIRE(arca.get_calls.size() == 1);
+    // A hit must not touch the model: no prefill, no decode.
+    CHECK(mock->decode_calls.empty());
+    CHECK(arca.set_calls.empty());
+}
+
+TEST_CASE("arca cache: a miss generates, then populates the cache") {
+    auto cfg = valid_config();
+    MockArca arca;  // canned unset -> miss
+    cfg.arca = &arca;
+
+    auto [engine, mock] = std::pair<ReameEngine, MockBackend*>{
+        [&] {
+            auto b = std::make_unique<MockBackend>();
+            MockBackend* raw = b.get();
+            script_foobar(raw);
+            return std::pair<ReameEngine, MockBackend*>{
+                ReameEngine(cfg, std::move(b)), raw};
+        }()};
+
+    CHECK(engine.generate("hi", greedy()) == "foobar");
+    REQUIRE(arca.get_calls.size() == 1);
+    // The generated answer is written back under the same key it looked up.
+    REQUIRE(arca.set_calls.size() == 1);
+    CHECK(arca.set_calls[0].first == arca.get_calls[0]);
+    CHECK(arca.set_calls[0].second == "foobar");
+}
+
+TEST_CASE("arca cache: sampled requests bypass the cache") {
+    auto cfg = valid_config();
+    MockArca arca;
+    arca.canned = "stale";
+    cfg.arca = &arca;
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    script_foobar(mock);
+    ReameEngine engine(cfg, std::move(backend));
+
+    auto sampled = greedy();
+    sampled.temperature = 0.8f;  // non-deterministic: caching would be wrong
+    CHECK(engine.generate("hi", sampled) == "foobar");  // fresh, not "stale"
+    CHECK(arca.get_calls.empty());
+    CHECK(arca.set_calls.empty());
 }
 
 TEST_CASE("conclave: n=1 degenerates to a plain generate") {
