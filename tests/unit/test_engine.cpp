@@ -646,6 +646,46 @@ void script_cached(MockBackend* m, bool with_prefill_logits) {
 
 }  // namespace
 
+TEST_CASE("warm-ahead: warm() prefills the cache so a later run skips prefill") {
+    CacheTempDir dir;
+    auto cfg = valid_config();
+    cfg.cache_dir = dir.path.string();
+    cfg.cache_block_tokens = 1;  // every position is a snapshot boundary
+
+    // Warm ahead of any user: prefill the prompt, snapshot it. No sampling.
+    {
+        auto backend = std::make_unique<MockBackend>();
+        MockBackend* mock = backend.get();
+        script_cached(mock, /*with_prefill_logits=*/true);
+        mock->state_data_result = {'W', '1'};
+
+        ReameEngine engine(cfg, std::move(backend));
+        CHECK(engine.warm("hi") == 2);  // tokenize -> {1, 2}
+        CHECK(mock->state_data_calls >= 1);  // boundaries snapshotted
+    }
+
+    // A real request later, fresh engine, same cache dir: the prefix is
+    // restored from the warm snapshot instead of decoded again.
+    {
+        auto backend = std::make_unique<MockBackend>();
+        MockBackend* mock = backend.get();
+        script_cached(mock, /*with_prefill_logits=*/false);
+
+        ReameEngine engine(cfg, std::move(backend));
+        CHECK(engine.generate("hi", greedy()) == "tok");
+        REQUIRE(mock->set_state_calls.size() == 1);  // restored, not re-prefilled
+        CHECK(mock->state_data_calls == 0);
+    }
+}
+
+TEST_CASE("warm-ahead: warm() without a cache is a no-op that still counts tokens") {
+    auto [engine, mock] = make_engine();  // no cache_dir
+    mock->tokenize_result = {1, 2, 3};
+    CHECK(engine.warm("hello") == 3);
+    // Nothing persisted (no cache), and no generation happened.
+    CHECK(mock->decode_append_calls.empty());
+}
+
 TEST_CASE("prompt cache: cold run snapshots the prefix, warm run skips prefill") {
     CacheTempDir dir;
     auto cfg = valid_config();

@@ -140,6 +140,13 @@ public:
     // template-less models fall back to plain role-prefixed turns.
     std::string format_chat(const std::vector<ChatMessage>& messages) const;
 
+    // Warm-ahead: prefill `prompt` into the disk prefix cache *now*, before
+    // any user asks, so the first real request that shares this prefix skips
+    // the prefill. Returns the number of tokens prefilled. A no-op returning
+    // the token count when the disk cache is disabled (nothing to persist
+    // into). Meant to be driven by a crawler/pipeline as documents arrive.
+    int warm(const std::string& prompt);
+
     int context_size() const;
     int vocab_size() const;
     // Token count of `text` under the model's tokenizer (for API usage
