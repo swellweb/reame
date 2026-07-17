@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reame — live CPU LLM demo</title>
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280;
+      --card: #f6f7f9; --border: #e2e5ea; --accent: #4f46e5;
+      --user: #eef2ff; --bot: #f6f7f9;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1117; --fg: #e6e8ee; --muted: #9aa2b1;
+        --card: #171a23; --border: #262b36; --accent: #818cf8;
+        --user: #1e2540; --bot: #171a23;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font: 16px/1.5 system-ui, -apple-system, sans-serif;
+      background: var(--bg); color: var(--fg);
+      display: flex; justify-content: center;
+    }
+    main { width: 100%; max-width: 720px; padding: 24px 16px 40px; }
+    h1 { font-size: 1.5rem; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+    .sub a { color: var(--accent); }
+    #status {
+      font-size: 0.85rem; padding: 6px 10px; border-radius: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      display: inline-block; margin-bottom: 16px;
+    }
+    #chat {
+      border: 1px solid var(--border); border-radius: 12px;
+      background: var(--card); min-height: 200px; padding: 12px;
+      display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;
+    }
+    .msg { padding: 10px 12px; border-radius: 10px; white-space: pre-wrap; word-wrap: break-word; }
+    .msg.user { background: var(--user); align-self: flex-end; max-width: 85%; }
+    .msg.bot  { background: var(--bot); border: 1px solid var(--border); align-self: flex-start; max-width: 85%; }
+    .meta { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    form { display: flex; gap: 8px; }
+    input[type=text] {
+      flex: 1; padding: 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+    }
+    button {
+      padding: 12px 18px; border: 0; border-radius: 10px;
+      background: var(--accent); color: #fff; font-weight: 600; cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .examples { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+    .examples button {
+      background: transparent; color: var(--accent); border: 1px solid var(--border);
+      font-weight: 400; font-size: 0.85rem; padding: 6px 10px;
+    }
+    footer { margin-top: 24px; color: var(--muted); font-size: 0.85rem; }
+    code { background: var(--card); padding: 2px 5px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>🏰 Reame — live CPU LLM demo</h1>
+    <p class="sub">
+      A CPU-first inference server on llama.cpp, serving Qwen2.5-0.5B from a
+      free Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
+      <br>Each answer shows its latency. This is a demo, not a benchmark.
+    </p>
+    <div id="status">checking backend…</div>
+
+    <div id="chat"></div>
+
+    <form id="form">
+      <input id="input" type="text" placeholder="Ask something…" autocomplete="off" required>
+      <button id="send" type="submit">Send</button>
+    </form>
+    <div class="examples" id="examples"></div>
+
+    <footer>
+      Runs on the hardware you already pay for: an Oracle Always-Free ARM box,
+      exposed over a free tunnel. On a CPU, never compute the same thing twice.
+    </footer>
+  </main>
+
+  <script>
+    // ── CONFIG ──────────────────────────────────────────────────────────
+    // Set this to your public Reame endpoint (Tailscale Funnel / Cloudflare
+    // Tunnel URL). Must be HTTPS so this page (served over HTTPS) can call it.
+    const REAME_ENDPOINT = "https://reame.taila321b5.ts.net";
+    // ────────────────────────────────────────────────────────────────────
+
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+    const statusEl = document.getElementById("status");
+    const history = [];
+
+    const EXAMPLES = [
+      "Summarize in one sentence: mitochondria are the powerhouse of the cell.",
+      "Extract the total: Invoice #42, subtotal 90 EUR, VAT 22%, total 109.80 EUR.",
+      "Sentiment (positive/negative): 'shipping was late but support fixed it fast'.",
+    ];
+    const exWrap = document.getElementById("examples");
+    EXAMPLES.forEach(function (ex) {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = ex;
+      b.onclick = function () { input.value = ex; input.focus(); };
+      exWrap.appendChild(b);
+    });
+
+    function addMsg(role, text) {
+      const d = document.createElement("div");
+      d.className = "msg " + role;
+      d.textContent = text;
+      chat.appendChild(d);
+      chat.scrollTop = chat.scrollHeight;
+      return d;
+    }
+
+    // Health check on load.
+    (async function () {
+      if (REAME_ENDPOINT.includes("YOUR-BOX")) {
+        statusEl.textContent = "⚠️ backend not configured — set REAME_ENDPOINT in index.html";
+        return;
+      }
+      try {
+        const r = await fetch(REAME_ENDPOINT + "/health", { method: "GET" });
+        statusEl.textContent = r.ok ? "🟢 backend online" : "🔴 backend unreachable";
+      } catch (e) {
+        statusEl.textContent = "🔴 backend offline (is the tunnel running?)";
+      }
+    })();
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+      addMsg("user", message);
+      history.push({ role: "user", content: message });
+      input.value = ""; sendBtn.disabled = true;
+
+      const botEl = addMsg("bot", "…");
+      const started = performance.now();
+      try {
+        const r = await fetch(REAME_ENDPOINT + "/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "reame",
+            messages: history,
+            max_tokens: 256,
+            temperature: 0.7,
+          }),
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const data = await r.json();
+        const answer = data.choices[0].message.content;
+        const ms = Math.round(performance.now() - started);
+        botEl.textContent = answer;
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = "answered in " + ms + " ms";
+        botEl.appendChild(meta);
+        history.push({ role: "assistant", content: answer });
+      } catch (err) {
+        botEl.textContent = "⚠️ error: " + err.message;
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
