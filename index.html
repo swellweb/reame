@@ -66,8 +66,8 @@
     <p class="sub">
       A CPU-first inference server on llama.cpp, serving Qwen3.5-9B from a free
       Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
-      <br>Answers stream in as the CPU generates them — a 9B model on a free
-      ARM box takes a bit. This is a demo, not a benchmark.
+      <br>A 9B model on a free ARM box takes ~a minute per answer — the counter
+      shows it working. This is a demo, not a benchmark.
     </p>
     <div id="status">checking backend…</div>
 
@@ -152,9 +152,12 @@
       history.push({ role: "user", content: message });
       input.value = ""; sendBtn.disabled = true;
 
-      const botEl = addMsg("bot", "…");
+      const botEl = addMsg("bot", "generating… 0s");
       const started = performance.now();
-      let raw = "";
+      // Live elapsed ticker so the wait isn't a silent "…" (a 9B on CPU is slow).
+      const ticker = setInterval(function () {
+        botEl.textContent = "generating… " + Math.round((performance.now() - started) / 1000) + "s";
+      }, 1000);
       try {
         const r = await fetch(REAME_ENDPOINT + "/v1/chat/completions", {
           method: "POST",
@@ -162,39 +165,15 @@
           body: JSON.stringify({
             model: "reame",
             messages: history,
-            max_tokens: 512,
+            max_tokens: 400,
             temperature: 0.7,
-            stream: true,
           }),
         });
         if (!r.ok) throw new Error("HTTP " + r.status);
-
-        const reader = r.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = "";
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const lines = buf.split("\n");
-          buf = lines.pop(); // keep incomplete line
-          for (const line of lines) {
-            const t = line.trim();
-            if (!t.startsWith("data:")) continue;
-            const payload = t.slice(5).trim();
-            if (payload === "[DONE]") continue;
-            try {
-              const delta = JSON.parse(payload).choices[0].delta.content || "";
-              raw += delta;
-            } catch (_) { /* ignore keep-alives */ }
-          }
-          const shown = stripThink(raw);
-          botEl.textContent = shown || "…thinking…";
-          chat.scrollTop = chat.scrollHeight;
-        }
-
-        const answer = stripThink(raw);
+        const data = await r.json();
+        const answer = stripThink(data.choices[0].message.content);
         const secs = ((performance.now() - started) / 1000).toFixed(1);
+        clearInterval(ticker);
         botEl.textContent = answer || "(no answer)";
         const meta = document.createElement("div");
         meta.className = "meta";
@@ -202,6 +181,7 @@
         botEl.appendChild(meta);
         history.push({ role: "assistant", content: answer });
       } catch (err) {
+        clearInterval(ticker);
         botEl.textContent = "⚠️ error: " + err.message;
       } finally {
         sendBtn.disabled = false;
