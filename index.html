@@ -158,6 +158,9 @@
       const ticker = setInterval(function () {
         botEl.textContent = "generating… " + Math.round((performance.now() - started) / 1000) + "s";
       }, 1000);
+      // Abort if the box takes too long (9B on a free CPU under load).
+      const ctrl = new AbortController();
+      const timer = setTimeout(function () { ctrl.abort(); }, 180000);
       try {
         const r = await fetch(REAME_ENDPOINT + "/v1/chat/completions", {
           method: "POST",
@@ -168,7 +171,11 @@
             max_tokens: 400,
             temperature: 0.7,
           }),
+          signal: ctrl.signal,
         });
+        if (r.status === 503 || r.status === 429) {
+          throw new Error("busy");
+        }
         if (!r.ok) throw new Error("HTTP " + r.status);
         const data = await r.json();
         const answer = stripThink(data.choices[0].message.content);
@@ -182,8 +189,16 @@
         history.push({ role: "assistant", content: answer });
       } catch (err) {
         clearInterval(ticker);
-        botEl.textContent = "⚠️ error: " + err.message;
+        history.pop(); // drop the failed turn so a retry is clean
+        if (err.message === "busy") {
+          botEl.textContent = "🐢 The little ARM box is busy — it serves one request at a time. Give it a few seconds and try again.";
+        } else if (err.name === "AbortError") {
+          botEl.textContent = "🐢 Taking too long — a 9B on a free CPU is slow, and it may be queued. Try a shorter prompt or retry in a moment.";
+        } else {
+          botEl.textContent = "⚠️ Couldn't reach the box (it's a single free instance — it may be down or overloaded). Try again shortly.";
+        }
       } finally {
+        clearTimeout(timer);
         sendBtn.disabled = false;
         input.focus();
       }
