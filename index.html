@@ -64,10 +64,10 @@
   <main>
     <h1>🏰 Reame — live CPU LLM demo</h1>
     <p class="sub">
-      A CPU-first inference server on llama.cpp, serving Qwen3.5-9B from a free
-      Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
-      <br>A 9B model on a free ARM box takes ~a minute per answer — the counter
-      shows it working. This is a demo, not a benchmark.
+      A CPU-first inference server on llama.cpp, serving OLMoE (7B MoE, 1B
+      active) from a free Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
+      <br>A 7B MoE runs fast on CPU (~25 tok/s here) — most answers land in a
+      few seconds. This is a demo, not a benchmark.
     </p>
     <div id="status">checking backend…</div>
 
@@ -193,7 +193,7 @@
         if (err.message === "busy") {
           botEl.textContent = "🐢 The little ARM box is busy — it serves one request at a time. Give it a few seconds and try again.";
         } else if (err.name === "AbortError") {
-          botEl.textContent = "🐢 Taking too long — a 9B on a free CPU is slow, and it may be queued. Try a shorter prompt or retry in a moment.";
+          botEl.textContent = "🐢 Taking too long — the box may be queued behind other requests. Try a shorter prompt or retry in a moment.";
         } else {
           botEl.textContent = "⚠️ Couldn't reach the box (it's a single free instance — it may be down or overloaded). Try again shortly.";
         }
