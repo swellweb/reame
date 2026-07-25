@@ -90,9 +90,14 @@ public:
 
     // `callback` gets each generated token; returning false stops. EOS is
     // never delivered.
+    // `kv_ready_tokens`: how many leading prompt tokens the TARGET KV already
+    // holds (loaded by the caller, e.g. from the shared-prefix cache). The
+    // decoder continues from there instead of resetting — resetting would
+    // silently throw away the warmed prefix (bug #16).
     void generate_stream(const std::vector<TokenId>& prompt_tokens,
                          const std::function<bool(TokenId)>& callback,
-                         const core::GenerationConfig& gen_config);
+                         const core::GenerationConfig& gen_config,
+                         std::size_t kv_ready_tokens = 0);
 
     const SpeculativeMetrics& metrics() const { return metrics_; }
     // Current adaptive draft length.
