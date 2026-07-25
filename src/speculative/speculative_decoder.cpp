@@ -67,7 +67,8 @@ std::vector<TokenId> SpeculativeDecoder::generate(
 void SpeculativeDecoder::generate_stream(
     const std::vector<TokenId>& prompt_tokens,
     const std::function<bool(TokenId)>& callback,
-    const core::GenerationConfig& gen_config) {
+    const core::GenerationConfig& gen_config,
+    std::size_t kv_ready_tokens) {
     if (prompt_tokens.empty())
         throw core::EngineError("prompt is empty");
     const auto n_ctx = static_cast<std::size_t>(target_.context_length());
@@ -106,12 +107,26 @@ void SpeculativeDecoder::generate_stream(
     TokenId cur = history.back();
     std::size_t base = history.size() - 1;  // positions currently in KV
 
+    if (kv_ready_tokens > base)
+        throw core::EngineError("kv_ready_tokens (" +
+                                std::to_string(kv_ready_tokens) +
+                                ") exceeds the prompt prefix (" +
+                                std::to_string(base) + ")");
     {
         const auto t0 = Clock::now();
-        target_.reset();
-        if (base > 0)
+        if (kv_ready_tokens == 0) {
+            target_.reset();
+            if (base > 0)
+                target_.decode_append({history.begin(),
+                                       history.begin() +
+                                           static_cast<long>(base)});
+        } else if (kv_ready_tokens < base) {
+            // The caller pre-loaded a shorter prefix (e.g. partial cache
+            // coverage): decode only the uncovered tail, never reset.
             target_.decode_append(
-                {history.begin(), history.begin() + static_cast<long>(base)});
+                {history.begin() + static_cast<long>(kv_ready_tokens),
+                 history.begin() + static_cast<long>(base)});
+        }  // kv_ready_tokens == base: the KV is already exactly right.
         metrics_.target_time_s += seconds_since(t0);
     }
     const bool model_mode = cfg_.mode == Config::Mode::ModelDraft;

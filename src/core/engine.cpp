@@ -411,13 +411,23 @@ void ReameEngine::generate_stream_impl(
     }
 
     if (pimpl_->decoder != nullptr) {
+        // Compose with the shared-prefix cache (bug #16): load the warmed
+        // prefix first, then tell the decoder how much KV it inherits —
+        // otherwise its reset would silently discard every /v1/warm.
+        std::size_t kv_ready = 0;
+        if (pimpl_->prefix_cache != nullptr && tokens.size() > 1) {
+            const std::vector<TokenId> prefix(tokens.begin(),
+                                              tokens.end() - 1);
+            pimpl_->prefix_cache->prefill(prefix, backend);
+            kv_ready = prefix.size();
+        }
         pimpl_->decoder->generate_stream(
             tokens,
             [&](TokenId t) {
                 tokens.push_back(t);
                 return callback(backend.token_piece(t));
             },
-            gen_config);
+            gen_config, kv_ready);
         pimpl_->context_tokens = std::move(tokens);
         return;
     }

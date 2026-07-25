@@ -678,6 +678,47 @@ TEST_CASE("warm-ahead: warm() prefills the cache so a later run skips prefill") 
     }
 }
 
+TEST_CASE("warm-ahead composes with speculation: the decoder inherits the "
+          "warmed prefix instead of resetting it") {
+    // Bug #16: with use_speculative on (the production default) the decoder
+    // branch returned before the prefix cache was ever consulted — /v1/warm
+    // wrote snapshots nobody read. The fixed behavior: the engine restores
+    // the warmed prefix and the decoder continues from it.
+    CacheTempDir dir;
+    auto cfg = valid_config();
+    cfg.cache_dir = dir.path.string();
+    cfg.cache_block_tokens = 1;
+    cfg.use_speculative = true;
+    cfg.use_prompt_lookup = true;  // decoder attivo senza draft model (prod)
+
+    // Night: the granary warms the prompt.
+    {
+        auto backend = std::make_unique<MockBackend>();
+        MockBackend* mock = backend.get();
+        script_cached(mock, /*with_prefill_logits=*/true);
+        mock->state_data_result = {'W', '1'};
+
+        ReameEngine engine(cfg, std::move(backend));
+        CHECK(engine.warm("hi") == 2);
+        CHECK(mock->state_data_calls >= 1);
+    }
+
+    // Day: fresh engine, same cache, speculation ON. The warmed prefix must
+    // be restored (set_state), not thrown away by the decoder's reset.
+    {
+        auto backend = std::make_unique<MockBackend>();
+        MockBackend* mock = backend.get();
+        script_cached(mock, /*with_prefill_logits=*/false);
+
+        ReameEngine engine(cfg, std::move(backend));
+        CHECK(engine.generate("hi", greedy()) == "tok");
+        REQUIRE(mock->set_state_calls.size() == 1);  // il prefisso caldo vive
+        // The restored prefix position must never be decoded again.
+        for (const auto& call : mock->decode_append_calls)
+            CHECK(call != std::vector<TokenId>{1});
+    }
+}
+
 TEST_CASE("warm-ahead: warm() without a cache is a no-op that still counts tokens") {
     auto [engine, mock] = make_engine();  // no cache_dir
     mock->tokenize_result = {1, 2, 3};
