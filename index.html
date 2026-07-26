@@ -102,16 +102,16 @@
     const SYSTEM_PROMPT = {
       role: "system",
       content: "Answer in plain text: no LaTeX, no markdown math, no $$ blocks. " +
-               "Be direct and concise — give the answer first, in one or two short " +
-               "sentences, and only add a step if the user asked for the reasoning. " +
-               "Reply in the language of the question.",
+               "Give the answer first, in one or two short sentences. Do NOT show " +
+               "calculations or step-by-step reasoning unless the user explicitly " +
+               "asks for them. Reply in the language of the question.",
     };
     const history = [SYSTEM_PROMPT];
 
     const EXAMPLES = [
-      "Summarize in one sentence: mitochondria are the powerhouse of the cell.",
-      "Extract the total: Invoice #42, subtotal 90 EUR, VAT 22%, total 109.80 EUR.",
+      "Extract the phone and opening hours: ResinTech Srl — Via delle Fonderie 27, Prato. Sales: 0574 812345. Office hours: Mon-Fri 8:30-12:30 / 14:00-18:00. We do not work weekends.",
       "Sentiment (positive/negative): 'shipping was late but support fixed it fast'.",
+      "Riassumi in una frase: il pavimento in resina è una superficie continua, senza fughe, posata su massetto e rifinita con resina epossidica.",
     ];
     const exWrap = document.getElementById("examples");
     EXAMPLES.forEach(function (ex) {
