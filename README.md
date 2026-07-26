@@ -19,10 +19,20 @@ fallback for missing GPUs. Its thesis is simple:
 
 Reame is built for **narrow, repetitive AI workloads over your own data, on
 hardware you already pay for** — the case where the answer lives in the
-context you provide, not in the model's general knowledge. That is exactly
-where a small model matches a frontier one (we measured 100% accuracy on
-long-context extraction with a 7B on a free 2-core ARM box) and where
-Reame's memory makes request #100 cost a fraction of request #1.
+context you provide, not in the model's general knowledge. Reame's memory
+makes request #100 cost a fraction of request #1, and the input pipeline
+makes request #1 cheaper too.
+
+**The headline number, measured on a €0 Oracle ARM box this week:** the same
+question about the same customer page, answered by the same model —
+**40.5s → 6.2s (6.5×)**, and the score on a 20-question fact exam went from
+19/20 to a perfect **20/20 · 13/13 critical facts**. No new model, no
+fine-tuning, no GPU. We just stopped handing the model 2137 tokens of prose
+when 405 tokens of `label: value` say the same thing — and it turns out that
+small models don't just read less that way, they read *better*.
+
+The failures are published next to that number, including the two ideas we
+built and killed the same day ([BENCHMARKS.md](docs/BENCHMARKS.md)).
 
 | Use case | Why it fits | Suggested model |
 |---|---|---|
@@ -87,7 +97,8 @@ including the negative results that shaped the design.
 
 | Highlight | Measured | Machine |
 |---|---|---|
-| MoE beats dense on CPU | OLMoE 7B-A1B **26.7 tok/s** vs dense 7B 3.3 tok/s, same 8/8 accuracy | Oracle free (€0) |
+| Input formatting beats a bigger model | same page, same model: **40.5s → 6.2s (6.5×)** and 19/20 → **20/20** on a 20-question fact exam | Oracle free (€0) |
+| MoE beats dense on CPU | OLMoE 7B-A1B **26.7 tok/s** vs dense 7B 3.3 tok/s, equal on easy extraction | Oracle free (€0) |
 | Active params, not total size | Marco-Nano 8B-A0.6B **46.2 tok/s** — 3.2× a 3B dense (14.3 tok/s) while bigger on disk | Oracle free (€0) |
 | Warm cache vs cold | **4.8× end-to-end** | Contabo VPS |
 | Generation archive (Palimpsest) | **2.3×** (22→51 tok/s) | M3 Pro |
@@ -96,7 +107,7 @@ including the negative results that shaped the design.
 
 **[Full benchmarks, methodology and negative results → docs/BENCHMARKS.md](docs/BENCHMARKS.md)**
 
-Three negative results that matter. A 30B-class MoE on the maxed free tier answered the same extraction questions perfectly — and ten times slower than a 7B-A1B that also scored 100%: when the answer lives in the context, extra parameters buy nothing (MoE prefill touches nearly every expert, so the 3B-active discount vanishes on document reading). Use 30B-class models for hard reasoning in background batches, not for serving. On heavily oversubscribed shared vCPUs a draft
+Negative results that matter. A 30B-class MoE on the maxed free tier answered the same extraction questions perfectly — and ten times slower than a 7B-A1B that scored the same: when the answer lives in the context, extra parameters buy nothing. Use 30B-class models for hard reasoning in background batches, not for serving. **We also published the correction to our own claim**: that parity holds on an easy needle test, and breaks on a harder one where four similar prices sit in the same block — a 1B-active model reads the right number but cannot tell it apart from its neighbour (we dumped the attention to prove it), while a 3B dense model can. Reformatting the page fixes it without changing the model. Two more ideas we built and killed the same week: 4-bit Q4_0 quantization (+37% prefill, −5 facts) and halving the active experts during prefill (+44% prefill, but the cached KV comes out corrupted). On heavily oversubscribed shared vCPUs a draft
 model runs as slowly as its target, so speculation is counter-productive there —
 Reame detects this and disables it at runtime. And the Conclave does **not**
 close the gap to a model twice the size on hard reasoning: majority voting

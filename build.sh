@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sovrano build script.
+# Reame build script.
 #   ./build.sh              Release build + tests
 #   ./build.sh --debug      Debug build
 #   ./build.sh --clean      remove build dir first
@@ -19,9 +19,9 @@ for arg in "$@"; do
     case "$arg" in
         --debug)     BUILD_TYPE="Debug" ;;
         --clean)     rm -rf "$BUILD_DIR" ;;
-        --no-tests)  RUN_TESTS=0; CMAKE_ARGS+=(-DSOVRANO_BUILD_TESTS=OFF) ;;
-        --avx512)    CMAKE_ARGS+=(-DSOVRANO_ENABLE_AVX512=ON) ;;
-        --no-server) CMAKE_ARGS+=(-DSOVRANO_BUILD_SERVER=OFF) ;;
+        --no-tests)  RUN_TESTS=0; CMAKE_ARGS+=(-DREAME_BUILD_TESTS=OFF) ;;
+        --avx512)    CMAKE_ARGS+=(-DREAME_ENABLE_AVX512=ON) ;;
+        --no-server) CMAKE_ARGS+=(-DREAME_BUILD_SERVER=OFF) ;;
         --help|-h)   grep '^#   ' "$0" | sed 's/^#   //'; exit 0 ;;
         *) echo "unknown option: $arg (see --help)" >&2; exit 1 ;;
     esac
@@ -46,4 +46,4 @@ if [[ "$RUN_TESTS" -eq 1 ]]; then
     ctest --test-dir "$BUILD_DIR" --output-on-failure
 fi
 
-echo "== Done: ${BUILD_DIR}/src/sovrano =="
+echo "== Done: ${BUILD_DIR}/src/reame =="

@@ -6,3 +6,12 @@ compile_commands.json
 .DS_Store
 build*/
 .reame-cache/
+HANDOFF.md
+
+# war room locale (multi-agente, mai pubblico)
+WARROOM.md
+
+# bozze marketing locali (passano dal fondatore prima di ogni pubblicazione)
+docs/marketing/
+PREFILL-LAB.md
+STENOGRAFO.md
