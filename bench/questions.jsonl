@@ -1,0 +1,20 @@
+{"id": "q01", "domanda": "Qual è il prezzo al mq della resina epossidica autolivellante civile?", "attesa": "35 €/mq", "accept": ["\\b35(\\.00)?\\b"], "reject": ["\\b48\\b", "\\b28\\b", "\\b60\\b"], "crit": "C", "trappola": "ripetuto-variante"}
+{"id": "q02", "domanda": "Qual è il prezzo al mq dello spatolato decorativo?", "attesa": "48 €/mq", "accept": ["\\b48(\\.00)?\\b"], "reject": [], "crit": "C", "trappola": "numeri-simili"}
+{"id": "q03", "domanda": "Qual è il prezzo al mq dei pavimenti industriali oltre 500 mq?", "attesa": "28 €/mq", "accept": ["\\b28(\\.00)?\\b"], "reject": [], "crit": "C", "trappola": "numeri-simili"}
+{"id": "q04", "domanda": "Da quanti mq di superficie scatta lo sconto del 10%?", "attesa": "oltre 200 mq", "accept": ["\\b200\\b"], "reject": [], "crit": "C", "trappola": "numeri-simili-vs-500"}
+{"id": "q05", "domanda": "Dopo quante ore il pavimento è pedonabile?", "attesa": "24 ore", "accept": ["\\b24\\b"], "reject": [], "crit": "C", "trappola": "numeri-simili"}
+{"id": "q06", "domanda": "Dopo quante ore il pavimento è carrabile?", "attesa": "72 ore", "accept": ["\\b72\\b"], "reject": [], "crit": "C", "trappola": "numeri-simili"}
+{"id": "q07", "domanda": "Quanto dura il cantiere per un appartamento civile standard?", "attesa": "3-5 giorni lavorativi", "accept": ["\\b3\\b[\\s\\S]*\\b5\\b[\\s\\S]*giorn"], "reject": [], "crit": "N", "trappola": ""}
+{"id": "q08", "domanda": "Qual è il numero di telefono commerciale?", "attesa": "0574 812345", "accept": ["0574\\s*812345"], "reject": [], "crit": "C", "trappola": "numeri-simili"}
+{"id": "q09", "domanda": "Qual è il numero dell'assistenza post-vendita?", "attesa": "0574 812399", "accept": ["0574\\s*812399"], "reject": [], "crit": "C", "trappola": "boilerplate-solo-footer"}
+{"id": "q10", "domanda": "Qual è la partita IVA dell'azienda?", "attesa": "02458730971", "accept": ["02458730971"], "reject": [], "crit": "C", "trappola": "boilerplate-solo-footer"}
+{"id": "q11", "domanda": "Quale certificazione di qualità possiede l'azienda?", "attesa": "ISO 9001:2015", "accept": ["iso\\s*9001(:2015)?"], "reject": [], "crit": "N", "trappola": ""}
+{"id": "q12", "domanda": "Quali sono gli orari dell'ufficio nei giorni feriali?", "attesa": "8:30-12:30 e 14:00-18:00", "accept": ["8[.:]30[\\s\\S]*12[.:]30[\\s\\S]*14[.:]00[\\s\\S]*18[.:]00"], "reject": [], "crit": "N", "trappola": "boilerplate-solo-footer"}
+{"id": "q13", "domanda": "I cantieri lavorano nel weekend?", "attesa": "No", "accept": ["^no\\b"], "reject": ["^s[iì]"], "crit": "C", "trappola": "negazione"}
+{"id": "q14", "domanda": "Applicano resina su pavimenti in legno o parquet?", "attesa": "No", "accept": ["^no\\b"], "reject": ["^s[iì]"], "crit": "C", "trappola": "negazione"}
+{"id": "q15", "domanda": "Servono le isole?", "attesa": "No", "accept": ["^no\\b"], "reject": ["^s[iì]"], "crit": "C", "trappola": "negazione"}
+{"id": "q16", "domanda": "In quali province operano?", "attesa": "Prato, Firenze, Pistoia, Lucca", "accept": ["prato", "firenze", "pistoia", "lucca"], "reject": [], "crit": "N", "trappola": "lista"}
+{"id": "q17", "domanda": "Quanti anni di garanzia sui pavimenti industriali?", "attesa": "10 anni", "accept": ["\\b10\\b"], "reject": ["^\\s*5\\b"], "crit": "C", "trappola": "numeri-simili-vs-5"}
+{"id": "q18", "domanda": "Entro quanti km il sopralluogo è gratuito?", "attesa": "30 km", "accept": ["\\b30\\b"], "reject": [], "crit": "N", "trappola": "numeri-simili-vs-50"}
+{"id": "q19", "domanda": "Lo showroom è aperto il sabato? A che condizioni?", "attesa": "Sì, sabato mattina 9:00-12:00 solo su appuntamento", "accept": ["s[iì]", "appuntament"], "reject": [], "crit": "N", "trappola": "variante-in-FAQ-dedup (accept calibrato it2)"}
+{"id": "q20", "domanda": "Entro quanto tempo arriva il preventivo?", "attesa": "48 ore lavorative", "accept": ["\\b48\\b"], "reject": [], "crit": "N", "trappola": "ripetuto-2-CTA"}

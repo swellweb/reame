@@ -258,7 +258,15 @@ row pays a full cold prefill:
 | Compressed (rules + learned selection) | 1185 | 21.0 s | 20/20 | 13/13 |
 | **Fact sheet only** | **405** | **6.2 s** | **20/20** | **13/13** |
 
-**6.5× on time to first token, and the score goes up rather than down.** The
+**~6× on time to first token, and the score goes up rather than down.** Run
+end-to-end through the public tunnel with `bench/run_fact_exam.py` the same
+three forms gave 42.6s / 27.4s / 7.3s — 5.9×, with the extra seconds being
+network latency and whatever else the shared box was doing. Reproduce it
+yourself before believing either number:
+
+```bash
+python3 bench/run_fact_exam.py --server http://127.0.0.1:8080 --model reame
+``` The
 same three forms measured earlier in the week with OLMoE 7B-A1B — a weaker
 reader — went 65.2 s → 31.7 s with 14/20 → 18/20 (9/13 → 13/13 critical), so
 the effect is not specific to one model: the weaker the reader, the more the

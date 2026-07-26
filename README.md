@@ -25,11 +25,20 @@ makes request #1 cheaper too.
 
 **The headline number, measured on a €0 Oracle ARM box this week:** the same
 question about the same customer page, answered by the same model —
-**40.5s → 6.2s (6.5×)**, and the score on a 20-question fact exam went from
-19/20 to a perfect **20/20 · 13/13 critical facts**. No new model, no
+**~6× faster time to first token** (40.5s → 6.2s on the box, 42.6s → 7.3s
+through the public tunnel, so expect 5.9–6.5× depending on where you measure
+from), and the score on a 20-question fact exam went from 19/20 to a perfect
+**20/20 · 13/13 critical facts**. No new model, no
 fine-tuning, no GPU. We just stopped handing the model 2137 tokens of prose
 when 405 tokens of `label: value` say the same thing — and it turns out that
 small models don't just read less that way, they read *better*.
+
+Don't take our word for it — the page, the questions and the scorer are in
+[`bench/`](bench/), and they run against any OpenAI-compatible server:
+
+```bash
+python3 bench/run_fact_exam.py --server http://127.0.0.1:8080 --model reame
+```
 
 The failures are published next to that number, including the two ideas we
 built and killed the same day ([BENCHMARKS.md](docs/BENCHMARKS.md)).
@@ -97,7 +106,7 @@ including the negative results that shaped the design.
 
 | Highlight | Measured | Machine |
 |---|---|---|
-| Input formatting beats a bigger model | same page, same model: **40.5s → 6.2s (6.5×)** and 19/20 → **20/20** on a 20-question fact exam | Oracle free (€0) |
+| Input formatting beats a bigger model | same page, same model: **~6× faster TTFT** (40.5s → 6.2s) and 19/20 → **20/20** on a 20-question fact exam | Oracle free (€0) |
 | MoE beats dense on CPU | OLMoE 7B-A1B **26.7 tok/s** vs dense 7B 3.3 tok/s, equal on easy extraction | Oracle free (€0) |
 | Active params, not total size | Marco-Nano 8B-A0.6B **46.2 tok/s** — 3.2× a 3B dense (14.3 tok/s) while bigger on disk | Oracle free (€0) |
 | Warm cache vs cold | **4.8× end-to-end** | Contabo VPS |
