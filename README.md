@@ -84,7 +84,7 @@ long-form writing at scale.
 - ⚡ **Zero-config CLI** — `reame run qwen2.5-1.5b` downloads the model once,
   autoconfigures threads/KV/cache for the host and drops into a chat (or
   `--serve`). No config file until you want one.
-- 🧪 **220+ isolated test cases** — every layer is mockable and tested without a
+- 🧪 **261 isolated test cases** — every layer is mockable and tested without a
   model; correctness of the multi-sequence, speculative and KV-clone paths is
   pinned against real models in integration tests.
 

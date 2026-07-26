@@ -90,8 +90,12 @@ of `<think>` tokens before answering: minutes of wait for a single reply.
 | Machine | Model | Needle score | Note |
 |---|---|---|---|
 | Oracle free | Qwen2.5-7B dense | 8/8 | baseline |
-| Oracle free | OLMoE 7B-A1B | 8/8 | same accuracy, 5.4× the speed |
+| Oracle free | OLMoE 7B-A1B | 8/8 | same accuracy, far faster (see note) |
 | Oracle free | Qwen3-30B-A3B | 8/8 | same accuracy, 10× the time |
+
+(The dense 7B row was measured on a 2-core instance and the MoE on a 4-core
+one, so we no longer quote a speed ratio between them — the machines differ.
+The apples-to-apples comparison is the same-session table above.)
 
 When the answer lives in the context you provide, extra parameters buy
 nothing. A 7B-active model retrieves facts as accurately as a 30B one — it
@@ -240,6 +244,31 @@ test:
 
 None of this makes the model bigger. It makes the page easier to read for the
 model you already have — and it happens to halve the prefill.
+
+### The headline number, in full
+
+The same customer page, the same model (Marco-Nano 8B-A0.6B), the same
+question, on the same €0 4-core Oracle ARM box. Only the *shape of the input*
+changes. Cache flushed and the server restarted before each timing, so every
+row pays a full cold prefill:
+
+| Input form | Tokens | TTFT | Exam (20 questions) | Critical facts (13) |
+|---|---|---|---|---|
+| Original prose page | 2137 | 40.5 s | 19/20 | 13/13 |
+| Compressed (rules + learned selection) | 1185 | 21.0 s | 20/20 | 13/13 |
+| **Fact sheet only** | **405** | **6.2 s** | **20/20** | **13/13** |
+
+**6.5× on time to first token, and the score goes up rather than down.** The
+same three forms measured earlier in the week with OLMoE 7B-A1B — a weaker
+reader — went 65.2 s → 31.7 s with 14/20 → 18/20 (9/13 → 13/13 critical), so
+the effect is not specific to one model: the weaker the reader, the more the
+formatting buys.
+
+What the fact sheet is: every extractable fact rewritten as `label: value`,
+one fact per line, conditions attached to the value they qualify ("only by
+appointment" travels with the opening hours), negations quoted verbatim from
+the source. Values are byte-for-byte copies — the extractor refuses a rewrite
+that would drop a single number.
 
 ## Reame vs llama.cpp
 

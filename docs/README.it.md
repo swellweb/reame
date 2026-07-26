@@ -16,7 +16,9 @@ la GPU assente. La tesi è semplice:
 Carichi di lavoro **ristretti e ripetitivi sui tuoi dati, su hardware che già
 paghi** — il caso in cui la risposta sta nel contesto che fornisci, non nella
 conoscenza generale del modello. Lì un modello piccolo pareggia uno frontier
-(misurato: 100% di accuratezza in estrazione long-context con un 7B su una
+(misurato: su estrazione semplice un 7B-attivo pareggia modelli molto più
+grandi; su un esame avversariale con numeri adiacenti serve un lettore denso —
+vedi la correzione nei benchmark) (su una
 macchina ARM gratuita a 2 core) e la memoria di Reame rende la richiesta #100
 una frazione del costo della #1: estrazione e classificazione di documenti
 (RAG, fatture, ticket), pipeline batch notturne, feature AI in SaaS a margini
