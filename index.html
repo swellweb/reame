@@ -97,7 +97,16 @@
     const input = document.getElementById("input");
     const sendBtn = document.getElementById("send");
     const statusEl = document.getElementById("status");
-    const history = [];
+    // La demo gira su CPU: ogni token generato costa tempo reale, e il LaTeX
+    // non renderizzato sembra un errore. Si chiede testo semplice e conciso.
+    const SYSTEM_PROMPT = {
+      role: "system",
+      content: "Answer in plain text: no LaTeX, no markdown math, no $$ blocks. " +
+               "Be direct and concise — give the answer first, in one or two short " +
+               "sentences, and only add a step if the user asked for the reasoning. " +
+               "Reply in the language of the question.",
+    };
+    const history = [SYSTEM_PROMPT];
 
     const EXAMPLES = [
       "Summarize in one sentence: mitochondria are the powerhouse of the cell.",
@@ -168,7 +177,7 @@
           body: JSON.stringify({
             model: "reame",
             messages: history,
-            max_tokens: 400,
+            max_tokens: 220,
             temperature: 0.7,
           }),
           signal: ctrl.signal,
