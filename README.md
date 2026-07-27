@@ -261,27 +261,43 @@ a known-good commit and bumped deliberately.
 
 Documentation in Italian: [docs/README.it.md](docs/README.it.md).
 
-## Why Reame and not Ollama?
+## When to use Reame, and when not to
 
-The laptop story is the same one command: `reame run qwen2.5-1.5b` downloads,
-autoconfigures and chats — nothing to learn. From there the two projects
-diverge: Ollama optimizes for running *many* models casually; Reame optimizes
-for serving *one* workload seriously on hardware that costs nothing. The
-difference is one sentence:
+**Use Ollama** if you want to try many models on a laptop with the least
+friction. It is very good at that, it is what most people should use, and
+Reame does not try to replace it. If your workload is "a few requests a day,
+different prompts every time, on a machine with plenty of headroom", a
+general-purpose runner is the right answer and the rest of this section does
+not apply to you.
 
-> Ollama runs models. Reame remembers having run them.
+**Reame is for the other case**: one workload, running over and over, on
+hardware where compute is the scarce resource — a free tier, a shared VPS, a
+2-core ARM box. There the arithmetic changes. On a GPU, recomputing a prompt
+prefix is cheap enough to ignore. On four ARM cores it is the single most
+expensive thing you do: a 2137-token page costs 40 seconds of prefill before
+the model writes a word.
 
-General-purpose servers treat every request as brand new: compute, discard,
-repeat. On a GPU that's fine — compute is cheap. On a cheap CPU, compute is
-the most expensive thing you have.
-Everything in Reame attacks that: the disk prefix cache, the generation
-archive, the grammar prompter, self-regulating speculation, interleaved
-multi-user batches, the Conclave. None of it exists in Ollama.
+So Reame is built around one question — *what can we avoid computing?* — and
+every answer is measured on that free box:
 
-The practical consequence: **a Reame server gets faster the longer it runs.**
-The hundredth request costs a fraction of the first — the system prompt was
-paid once, similar answers draft themselves from the archive, structure is
-speculated for free. That property is the whole design.
+| What it avoids | Measured |
+|---|---|
+| Re-reading a prefix you have already read | 54.4s prefill → 3.5s from cold disk, 0.10s warm |
+| Reading a document at all, when it was predictable | pre-digested overnight: 89.7s → 16.7s |
+| Reading text that carries no facts | `label: value` instead of prose: 40.5s → 6.2s, and a *better* score |
+| Re-deriving an answer you already gave | ~0.02s from the ARCA cache vs ~1s of inference |
+| Recomputing structure you can predict | grammar-driven speculation, 2.1× on form-shaped output |
+
+The consequence is a server whose cost per request falls the longer it serves
+the same kind of work — the opposite of a per-token API bill, and the reason
+this is worth running on hardware you already pay for.
+
+**What Reame is not**: it is not faster than llama.cpp on a single cold
+request — it calls the same kernels and adds no per-token magic. It is not a
+GPU server; if you have GPUs, use vLLM or SGLang, they are better at that than
+I will ever be. And it is not a frontier-model replacement: a small model on a
+CPU is for narrow work over context you supply, not for general reasoning or
+broad knowledge.
 
 ## Support
 
