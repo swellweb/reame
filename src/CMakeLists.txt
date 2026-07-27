@@ -4,9 +4,12 @@
 add_library(reame_utils STATIC
     utils/config.cpp
     utils/logger.cpp
+    utils/version.cpp
 )
 target_include_directories(reame_utils PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(reame_utils PUBLIC reame_flags Threads::Threads)
+# One source of truth for the version: project(VERSION ...) above.
+target_compile_definitions(reame_utils PUBLIC REAME_VERSION="${PROJECT_VERSION}")
 
 # Core: LlamaModel wrapper. llama.cpp is confined to llama_backend_real.cpp;
 # without the submodule a stub backend keeps the build green.

@@ -13,6 +13,7 @@
 #include "reame/core/engine.hpp"
 #include "reame/speculative/speculative_decoder.hpp"
 #include "reame/utils/config.hpp"
+#include "reame/utils/version.hpp"
 #include "reame/utils/logger.hpp"
 
 #include <cstdio>
@@ -29,8 +30,6 @@
 #endif
 
 namespace {
-
-constexpr const char* kVersion = "0.1.5";
 
 void print_usage(const char* argv0) {
     std::cerr
@@ -306,7 +305,7 @@ int main(int argc, char** argv) {
             continue;
         }
         if (arg == "--version" || arg == "-v") {
-            std::cout << "reame " << kVersion << "\n";
+            std::cout << "reame " << reame::version() << "\n";
             return EXIT_SUCCESS;
         }
         if (arg == "--config" || arg == "-c" || arg == "--prompt" ||
@@ -336,7 +335,7 @@ int main(int argc, char** argv) {
             reame::Logger::level_from_string(cfg.get_string("logging.level", "info"));
         reame::Logger log(std::cout, level);
 
-        log.info("reame " + std::string(kVersion) + " starting");
+        log.info("reame " + std::string(reame::version()) + " starting");
         log.info("config loaded from " + config_path +
                  " (" + std::to_string(cfg.size()) + " keys)");
         log.info("model path: " + cfg.get_string("model.path", "<unset>"));

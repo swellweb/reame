@@ -11,6 +11,7 @@ FetchContent_MakeAvailable(Catch2)
 add_executable(reame_tests
     unit/test_config.cpp
     unit/test_logger.cpp
+    unit/test_version.cpp
     unit/test_model.cpp
     unit/test_sampler.cpp
     unit/test_engine.cpp
