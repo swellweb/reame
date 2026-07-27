@@ -68,6 +68,14 @@
       0.6B active) from a free Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
       <br>Only 0.6B parameters are read per token, so it decodes at ~46 tok/s on
       4 ARM cores — answers land in seconds. A demo, not a benchmark.
+      <br><br><b>Paste a text and ask about it.</b> That is what this is for, and
+      on a 20-question fact exam over a pasted page it scores 20/20 — as fast as
+      it is because we rewrite the page before the model reads it
+      (<a href="https://github.com/swellweb/reame/tree/main/bench">reproduce it</a>).
+      <br><b>Ask it what it knows instead, and it will get things wrong.</b> A
+      0.6B-active model has thin world knowledge: ask for a carbonara recipe and
+      it may put cream in it. Answers drawn from memory are prefixed
+      <code>[from memory]</code> — treat those as a party trick, not an answer.
     </p>
     <div id="status">checking backend…</div>
 
@@ -104,7 +112,11 @@
       content: "Answer in plain text: no LaTeX, no markdown math, no $$ blocks. " +
                "Give the answer first, in one or two short sentences. Do NOT show " +
                "calculations or step-by-step reasoning unless the user explicitly " +
-               "asks for them. Reply in the language of the question.",
+               "asks for them. Reply in the language of the question.\n" +
+               "If the user did not provide a document and you are answering " +
+               "from memory, start your reply with '[from memory]' — you are a " +
+               "small model and your recall of world facts is unreliable. When " +
+               "the user pastes a text, answer only from that text.",
     };
     const history = [SYSTEM_PROMPT];
 
@@ -112,6 +124,7 @@
       "Extract the phone and opening hours: ResinTech Srl — Via delle Fonderie 27, Prato. Sales: 0574 812345. Office hours: Mon-Fri 8:30-12:30 / 14:00-18:00. We do not work weekends.",
       "Sentiment (positive/negative): 'shipping was late but support fixed it fast'.",
       "Riassumi in una frase: il pavimento in resina è una superficie continua, senza fughe, posata su massetto e rifinita con resina epossidica.",
+      "CARBONARA (Accademia Italiana della Cucina, 4 persone): 320 g spaghetti, 150 g guanciale, 4 tuorli + 1 uovo, 100 g pecorino romano, pepe nero. NON si usano: panna, aglio, cipolla, prezzemolo. Mantecare fuori dal fuoco con acqua di cottura. — Usando solo il testo sopra: cosa NON va usato e perché la mantecatura è fuori dal fuoco?",
     ];
     const exWrap = document.getElementById("examples");
     EXAMPLES.forEach(function (ex) {
