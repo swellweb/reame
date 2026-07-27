@@ -74,8 +74,8 @@
       (<a href="https://github.com/swellweb/reame/tree/main/bench">reproduce it</a>).
       <br><b>Ask it what it knows instead, and it will get things wrong.</b> A
       0.6B-active model has thin world knowledge: ask for a carbonara recipe and
-      it may put cream in it. Answers drawn from memory are prefixed
-      <code>[from memory]</code> — treat those as a party trick, not an answer.
+      it may put cream in it. Answers that come from the model's own memory are
+      flagged as such below the reply — treat them as a party trick, not an answer.
     </p>
     <div id="status">checking backend…</div>
 
@@ -112,13 +112,21 @@
       content: "Answer in plain text: no LaTeX, no markdown math, no $$ blocks. " +
                "Give the answer first, in one or two short sentences. Do NOT show " +
                "calculations or step-by-step reasoning unless the user explicitly " +
-               "asks for them. Reply in the language of the question.\n" +
-               "If the user did not provide a document and you are answering " +
-               "from memory, start your reply with '[from memory]' — you are a " +
-               "small model and your recall of world facts is unreliable. When " +
-               "the user pastes a text, answer only from that text.",
+               "asks for them. Reply in the language of the question. When the user " +
+               "pastes a text, answer only from that text.",
     };
     const history = [SYSTEM_PROMPT];
+    let lastUserMessage = "";
+
+    // "Ha incollato un testo?" — lungo, o con struttura da documento (righe
+    // multiple, elenchi, campi chiave: valore). Euristica volutamente
+    // generosa: meglio non mostrare l'avviso che mostrarlo a sproposito.
+    function looksLikeSuppliedText(msg) {
+      if (!msg) return false;
+      if (msg.length > 220) return true;
+      if ((msg.match(/\n/g) || []).length >= 2) return true;
+      return /[:：]\s*\S+.*[:：]\s*\S+/.test(msg);
+    }
 
     const EXAMPLES = [
       "Extract the phone and opening hours: ResinTech Srl — Via delle Fonderie 27, Prato. Sales: 0574 812345. Office hours: Mon-Fri 8:30-12:30 / 14:00-18:00. We do not work weekends.",
@@ -172,6 +180,7 @@
       if (!message) return;
       addMsg("user", message);
       history.push({ role: "user", content: message });
+      lastUserMessage = message;
       input.value = ""; sendBtn.disabled = true;
 
       const botEl = addMsg("bot", "generating… 0s");
@@ -208,6 +217,18 @@
         meta.className = "meta";
         meta.textContent = "answered in " + secs + " s";
         botEl.appendChild(meta);
+        // Nessun testo incollato => la risposta viene dai pesi. Un modello con
+        // 0.6B attivi ha poca conoscenza del mondo: dirlo qui e' piu' onesto
+        // (e piu' affidabile) che chiederlo al modello stesso.
+        if (!looksLikeSuppliedText(lastUserMessage)) {
+          const warn = document.createElement("div");
+          warn.className = "meta";
+          warn.style.color = "#e0a458";
+          warn.textContent = "⚠ answered from the model's own memory — a 0.6B-active model "
+            + "has thin world knowledge and will get details wrong. Paste the source text "
+            + "and ask about it: that is the job this is built for.";
+          botEl.appendChild(warn);
+        }
         history.push({ role: "assistant", content: answer });
       } catch (err) {
         clearInterval(ticker);
