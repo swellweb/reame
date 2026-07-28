@@ -8,10 +8,12 @@
 
 **A lean, fully-tested LLM inference server built on [llama.cpp](https://github.com/ggml-org/llama.cpp) — designed for the hardware you already have: shared vCPUs, free tiers, 2-core ARM boxes.**
 
-Reame is an inference server built for cheap CPU hardware first — not as a
-fallback for missing GPUs. Its thesis is simple:
+> **Your local LLM re-reads the same text a thousand times.
+> Reame reads it once.**
 
-> **On a CPU, never compute the same thing twice.**
+Reame is an inference server built for cheap CPU hardware first — not as a
+fallback for missing GPUs. Its thesis is simple: **on a CPU, never compute the
+same thing twice.**
 
 ![reame run demo: model catalog, one-line launch, streamed answer](docs/figures/demo.gif)
 
