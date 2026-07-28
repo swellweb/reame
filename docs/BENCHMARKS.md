@@ -193,6 +193,10 @@ the top candidate — a stage 2 to add only if the numbers demand it.)
 
 ## Document formatting is a speed *and* accuracy lever
 
+![Time to first token by input form: 40.5s for the original prose, 21.0s
+compressed, 6.2s as a fact sheet — same model, same page, same
+question.](figures/ttft-per-forma.png)
+
 The binding failure above has a cheap fix, and finding it required looking at
 where the model actually looks. We dumped the post-softmax attention while
 OLMoE answered "what does the epoxy cost?" on a page listing four prices:
@@ -324,3 +328,59 @@ faster llama.cpp — it is to be a llama.cpp that remembers.
   load-balancing loss used to train MoE models deliberately flattens exactly
   the skew we were hoping to exploit. It also explains the previous entry: if
   every expert matters equally, dropping half drops half the information.
+
+## What small models know without a document (July 2026)
+
+Everything above measures extraction *from a document you paste in*. This
+section measures the opposite: what the model knows on its own, with nothing
+supplied. It is the case where small models are at their worst, and we publish
+it because the demo gets asked exactly this kind of question.
+
+Fifty questions about Italian cooking — ingredients, origin, technique,
+protected designations — graded by regex with accept/reject patterns. No
+document, no retrieval. The eval set and the scorer are not in this repo yet —
+they belong to a separate fine-tuning experiment still in progress. The numbers
+are published here because they bound what a small model can do *without* a
+document, which is the honest counterpart to every other table on this page.
+
+![Correct answers out of 50 on Italian cooking, no document supplied:
+Qwen2.5-3B 15, Marco-Nano 21, Qwen3.5-9B 32, Qwen3-30B-A3B
+43.](figures/cucina-per-modello.png)
+
+![Generation speed on the same 4-core ARM box: Qwen3.5-9B 4.9 tok/s,
+Qwen3-30B-A3B 9.7 tok/s, Marco-Nano 46.2 tok/s.](figures/velocita-per-modello.png)
+
+Read together, the two charts are the whole trade-off. **What matters is not
+total size but active parameters.** Qwen2.5-3B is dense with 3B active and
+scores 15/50; Qwen3-30B-A3B has the same 3B active but 30B total, and scores
+43/50 — nearly three times as many correct answers for the same per-token cost
+in bandwidth. Marco-Nano's 0.6B active parameters are why it answers in six
+seconds *and* why it invents ingredients: same cause, both effects.
+
+A caveat we would rather state than have found: **we wrote these fifty
+questions**, so this is our exam, not a public benchmark. What keeps it honest
+is that it also killed ideas of ours — see the negative results below.
+
+### Trimming the vocabulary
+
+`token_embd` is tied in Marco-Nano: it doubles as the output head and is re-read
+in full for every generated token — 127.6 MB, **29.4% of all bytes read per
+token**. Our domain (Italian, our own code, technical English) uses 9,314
+distinct tokens out of 151,936.
+
+Cutting the vocabulary to 32k is safe by construction: the tokenizer is
+byte-level and all 256 byte characters are kept, so no text becomes
+unrepresentable — a trimmed word merely costs an extra token. And because
+`token_embd` is Q6_K with rows spanning a whole number of blocks, whole rows are
+removed without ever splitting a quantized block: **the surviving weights are
+bit-for-bit identical**.
+
+![Generation speed before and after trimming the vocabulary to 32k: 46.2 to 55.0
+tokens per second.](figures/potatura-decode.png)
+
+**+17.8% on decode, measured over three independent runs with under 2% spread**,
+and the 20-question fact exam scores the same (13/13 critical facts both before
+and after). The theoretical ceiling from bandwidth alone was +30%; the gap is
+time that isn't weight reading. The cost, measured on held-out text, is +1.9%
+more tokens for the same document — so this pays off most when the input is
+already short, which is exactly what the fact sheet makes it.
