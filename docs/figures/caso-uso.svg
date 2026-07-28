@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 860" width="1120" height="860" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1120" height="860" fill="#ffffff"/>
+
+  <defs>
+    <marker id="frecciaRossa" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+    <marker id="frecciaBlu" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a78d6"/>
+    </marker>
+  </defs>
+
+  <!-- ============ BLOCCO 1: il problema ============ -->
+  <rect x="24" y="24" width="1072" height="352" rx="14" fill="#fefaf9" stroke="#c0392b" stroke-width="2.5"/>
+
+  <rect x="286" y="46" width="548" height="42" rx="10" fill="#ffffff" stroke="#c0392b" stroke-width="2"/>
+  <text x="560" y="74" font-size="20" font-weight="700" fill="#c0392b" text-anchor="middle">THE USUAL WAY: send every page to a paid API</text>
+
+  <text x="1032" y="80" font-size="42" font-weight="700" fill="#c0392b" text-anchor="middle">✕</text>
+
+  <!-- documento -->
+  <rect x="60" y="120" width="184" height="180" rx="8" fill="#ffffff" stroke="#8a8880" stroke-width="2"/>
+  <text x="152" y="156" font-size="16" font-weight="700" fill="#0b0b0b" text-anchor="middle">WEB PAGE</text>
+  <line x1="84" y1="176" x2="220" y2="176" stroke="#dedcd6" stroke-width="1.5"/>
+  <text x="84" y="202" font-size="13.5" fill="#52514e">• navigation menu</text>
+  <text x="84" y="226" font-size="13.5" fill="#52514e">• cookie banner</text>
+  <text x="84" y="250" font-size="13.5" fill="#52514e">• footer, breadcrumb</text>
+  <text x="84" y="274" font-size="13.5" fill="#52514e">• the four facts you want</text>
+
+  <path d="M256 210 L 328 210" stroke="#c0392b" stroke-width="3" marker-end="url(#frecciaRossa)"/>
+  <text x="292" y="196" font-size="15" font-weight="700" fill="#c0392b" text-anchor="middle">2137</text>
+  <text x="292" y="238" font-size="12.5" fill="#52514e" text-anchor="middle">tokens</text>
+
+  <!-- api -->
+  <rect x="340" y="140" width="220" height="140" rx="10" fill="#ffffff" stroke="#c0392b" stroke-width="2"/>
+  <text x="450" y="188" font-size="18" font-weight="700" fill="#0b0b0b" text-anchor="middle">CLOUD API</text>
+  <text x="450" y="216" font-size="13.5" fill="#52514e" text-anchor="middle">billed per token,</text>
+  <text x="450" y="238" font-size="13.5" fill="#52514e" text-anchor="middle">every page, every user</text>
+
+  <path d="M572 210 L 644 210" stroke="#c0392b" stroke-width="3" stroke-dasharray="7 4" marker-end="url(#frecciaRossa)"/>
+
+  <!-- conseguenze -->
+  <rect x="656" y="120" width="404" height="180" rx="10" fill="#ffffff" stroke="#c0392b" stroke-width="2"/>
+  <text x="680" y="154" font-size="16" font-weight="700" fill="#c0392b">WHAT IT COSTS YOU</text>
+  <text x="680" y="188" font-size="14" fill="#0b0b0b">→ the bill grows with every customer</text>
+  <text x="680" y="216" font-size="14" fill="#0b0b0b">→ you sell quotas instead of a product</text>
+  <text x="680" y="244" font-size="14" fill="#0b0b0b">→ your clients' pages leave your machine</text>
+  <text x="680" y="272" font-size="14" fill="#0b0b0b">→ no connection, no service</text>
+
+  <text x="60" y="342" font-size="14.5" fill="#c0392b">Four fifths of what you pay for is navigation furniture the model does not need.</text>
+
+  <!-- ============ BLOCCO 2: la soluzione ============ -->
+  <rect x="24" y="396" width="1072" height="352" rx="14" fill="#f8fbfe" stroke="#2a78d6" stroke-width="2.5"/>
+
+  <rect x="286" y="418" width="548" height="42" rx="10" fill="#ffffff" stroke="#2a78d6" stroke-width="2"/>
+  <text x="560" y="446" font-size="20" font-weight="700" fill="#2a78d6" text-anchor="middle">STENOGRAFO + REAME: keep it on your machine</text>
+
+  <text x="1032" y="452" font-size="40" font-weight="700" fill="#1baf7a" text-anchor="middle">✓</text>
+
+  <!-- stesso documento -->
+  <rect x="60" y="492" width="150" height="150" rx="8" fill="#ffffff" stroke="#8a8880" stroke-width="2"/>
+  <text x="135" y="528" font-size="15" font-weight="700" fill="#0b0b0b" text-anchor="middle">WEB PAGE</text>
+  <line x1="80" y1="546" x2="190" y2="546" stroke="#dedcd6" stroke-width="1.5"/>
+  <text x="135" y="574" font-size="13" fill="#52514e" text-anchor="middle">the same one,</text>
+  <text x="135" y="594" font-size="13" fill="#52514e" text-anchor="middle">untouched</text>
+  <text x="135" y="620" font-size="13" font-weight="700" fill="#52514e" text-anchor="middle">2137 tokens</text>
+
+  <path d="M222 566 L 274 566" stroke="#2a78d6" stroke-width="3" marker-end="url(#frecciaBlu)"/>
+
+  <!-- stenografo -->
+  <rect x="286" y="492" width="216" height="150" rx="10" fill="#ffffff" stroke="#2a78d6" stroke-width="2.5"/>
+  <text x="394" y="528" font-size="18" font-weight="700" fill="#2a78d6" text-anchor="middle">STENOGRAFO</text>
+  <text x="394" y="556" font-size="13" fill="#52514e" text-anchor="middle">drops every sentence</text>
+  <text x="394" y="576" font-size="13" fill="#52514e" text-anchor="middle">that carries no fact</text>
+  <text x="394" y="604" font-size="13" fill="#52514e" text-anchor="middle">211 ms per page, on CPU</text>
+  <text x="394" y="628" font-size="15" font-weight="700" fill="#2a78d6" text-anchor="middle">→ 405 tokens</text>
+
+  <path d="M514 566 L 566 566" stroke="#2a78d6" stroke-width="3" marker-end="url(#frecciaBlu)"/>
+
+  <!-- reame -->
+  <rect x="578" y="492" width="196" height="150" rx="10" fill="#ffffff" stroke="#2a78d6" stroke-width="2.5"/>
+  <text x="676" y="528" font-size="18" font-weight="700" fill="#2a78d6" text-anchor="middle">REAME</text>
+  <text x="676" y="556" font-size="13" fill="#52514e" text-anchor="middle">your own CPU</text>
+  <text x="676" y="576" font-size="13" fill="#52514e" text-anchor="middle">offline, no API key</text>
+  <text x="676" y="604" font-size="13" fill="#52514e" text-anchor="middle">4 ARM cores, €0/month</text>
+  <text x="676" y="628" font-size="15" font-weight="700" fill="#2a78d6" text-anchor="middle">answer in 6.2 s</text>
+
+  <path d="M786 566 L 838 566" stroke="#2a78d6" stroke-width="3" marker-end="url(#frecciaBlu)"/>
+
+  <!-- risultato -->
+  <rect x="850" y="492" width="210" height="150" rx="10" fill="#ffffff" stroke="#1baf7a" stroke-width="2.5"/>
+  <text x="955" y="530" font-size="16" font-weight="700" fill="#0b0b0b" text-anchor="middle">THE FOUR FACTS</text>
+  <text x="955" y="558" font-size="13" fill="#52514e" text-anchor="middle">price · duration ·</text>
+  <text x="955" y="578" font-size="13" fill="#52514e" text-anchor="middle">warranty · phone</text>
+  <text x="955" y="608" font-size="15" font-weight="700" fill="#1baf7a" text-anchor="middle">13/13 critical facts</text>
+  <text x="955" y="628" font-size="12.5" fill="#52514e" text-anchor="middle">accuracy went up</text>
+
+  <!-- benefici -->
+  <line x1="60" y1="672" x2="1060" y2="672" stroke="#d6e4f5" stroke-width="1.5"/>
+
+  <text x="60" y="704" font-size="15" font-weight="700" fill="#2a78d6">No variable cost</text>
+  <text x="60" y="726" font-size="13" fill="#52514e">One machine serves every</text>
+  <text x="60" y="744" font-size="13" fill="#52514e">user. The bill never grows.</text>
+
+  <text x="330" y="704" font-size="15" font-weight="700" fill="#2a78d6">Nothing leaves</text>
+  <text x="330" y="726" font-size="13" fill="#52514e">Your clients' pages stay</text>
+  <text x="330" y="744" font-size="13" fill="#52514e">where they already are.</text>
+
+  <text x="600" y="704" font-size="15" font-weight="700" fill="#2a78d6">6.5× faster</text>
+  <text x="600" y="726" font-size="13" fill="#52514e">40.5 s → 6.2 s to first</text>
+  <text x="600" y="744" font-size="13" fill="#52514e">token, same model.</text>
+
+  <text x="850" y="704" font-size="15" font-weight="700" fill="#2a78d6">More accurate</text>
+  <text x="850" y="726" font-size="13" fill="#52514e">Fewer tokens, better</text>
+  <text x="850" y="744" font-size="13" fill="#52514e">answers. Not a trade-off.</text>
+
+  <!-- nota onesta -->
+  <text x="24" y="790" font-size="13" fill="#52514e">Measured on one Italian business page, 20 questions, 13 of them critical — free Oracle ARM box, 4 cores, €0/month.</text>
+  <text x="24" y="812" font-size="13" fill="#52514e">The page, the questions and the scorer are in the repo, so you can disagree with the numbers precisely rather than in general.</text>
+  <text x="24" y="840" font-size="12.5" fill="#8a8880">MIT licensed · github.com/swellweb/reame</text>
+</svg>

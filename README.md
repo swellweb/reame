@@ -17,6 +17,12 @@ fallback for missing GPUs. Its thesis is simple:
 
 ## What Reame is for
 
+![The usual way sends every web page to a paid API — 2137 tokens, a bill that
+grows with each user, pages leaving your machine. Stenografo strips the
+navigation furniture down to 405 tokens in 211ms, Reame answers in 6.2s on four
+free ARM cores, and all 13 critical facts still come out
+right.](docs/figures/caso-uso.svg)
+
 Reame is built for **narrow, repetitive AI workloads over your own data, on
 hardware you already pay for** — the case where the answer lives in the
 context you provide, not in the model's general knowledge. Reame's memory
