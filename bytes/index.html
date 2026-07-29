@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your LLM re-reads the same text a thousand times — Reame</title>
+<meta name="description" content="Two weeks of CPU inference optimization, and the thing that won wasn't in the engine. Measured on a free 4-core ARM box.">
+<style>
+  :root { color-scheme: light dark; --ink:#16150f; --ink2:#57564d; --ink3:#84837a;
+          --bg:#fdfdfc; --surface:#f5f4f0; --line:#e2e0d8; --accent:#2a78d6; --warn:#c0392b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#f2f1ea; --ink2:#c3c2b7; --ink3:#8f8e85;
+            --bg:#16150f; --surface:#211f18; --line:#33312a; --accent:#5fa0e8; --warn:#e07a6c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         -webkit-font-smoothing:antialiased; }
+  main { max-width:44rem; margin:0 auto; padding:3.5rem 1.4rem 5rem; }
+  h1 { font-size:2rem; line-height:1.2; letter-spacing:-.02em; margin:0 0 .6rem; }
+  h2 { font-size:1.3rem; line-height:1.3; margin:2.8rem 0 .8rem; letter-spacing:-.01em; }
+  .sub { color:var(--ink2); font-size:1.05rem; margin:0 0 2.2rem; }
+  p { margin:0 0 1.1rem; }
+  a { color:var(--accent); }
+  code { font:.9em ui-monospace,SFMono-Regular,Menlo,monospace;
+         background:var(--surface); padding:.12em .35em; border-radius:4px; }
+  table { border-collapse:collapse; width:100%; margin:1.3rem 0; font-size:.95rem;
+          display:block; overflow-x:auto; }
+  th,td { text-align:left; padding:.55rem .7rem; border-bottom:1px solid var(--line); }
+  th { font-weight:600; color:var(--ink2); font-size:.85rem; text-transform:uppercase;
+       letter-spacing:.04em; }
+  td.num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  blockquote { margin:1.6rem 0; padding:.9rem 1.2rem; background:var(--surface);
+               border-left:3px solid var(--accent); border-radius:0 6px 6px 0; }
+  blockquote p:last-child { margin:0; }
+  .caveat { border-left-color:var(--warn); }
+  footer { margin-top:3.5rem; padding-top:1.5rem; border-top:1px solid var(--line);
+           color:var(--ink2); font-size:.95rem; }
+  .meta { color:var(--ink3); font-size:.9rem; margin-bottom:2.4rem; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Your LLM re-reads the same text a thousand times</h1>
+<p class="sub">I spent two weeks trying to make CPU inference faster. The thing
+that finally worked was not in the engine.</p>
+<p class="meta">Measured on a free Oracle ARM box — 4 cores, €0/month. Everything
+below is reproducible; the scripts are linked at the end.</p>
+
+<p>I maintain a CPU-first inference server built on llama.cpp. Not as a fallback
+for a missing GPU — as the target. The hardware I care about is the free tier:
+two to four ARM cores, no accelerator, no budget.</p>
+
+<p>The bottleneck there is prefill. Before a model writes a single token it has
+to read your entire prompt, and on a document of any size that read dominates
+everything else. So I went looking for speed in the obvious places.</p>
+
+<h2>Three things that didn't work</h2>
+
+<p>I bumped llama.cpp forward by a year of upstream kernel work, expecting the
+ARM optimizations to show up. On this quantization and this CPU: <strong>0%</strong>.</p>
+
+<p>I tried a coarser quantization. <code>Q4_0</code> is 37% faster at prefill and
+19% faster at decode — and it dropped 5 facts out of 20 on my extraction test.
+Rejected.</p>
+
+<p>I halved the number of active experts during prefill on a mixture-of-experts
+model. 44% faster, and it silently corrupts the cache: a KV cache built with 4
+experts and read back with 8 scores 11/20 against a 14/20 control. The damage
+is baked into the cached representation, not just the output. That one was
+worth knowing about.</p>
+
+<h2>What worked was the text</h2>
+
+<p>The same page. The same model. The same question. Rewritten as
+<code>label: value</code>, one fact per line, with conditions kept attached to
+what they qualify:</p>
+
+<table>
+  <thead><tr><th>Input form</th><th>Tokens</th><th>Time to first token</th><th>Fact exam</th></tr></thead>
+  <tbody>
+    <tr><td>Original prose</td><td class="num">2137</td><td class="num">40.5 s</td><td class="num">19/20</td></tr>
+    <tr><td>Compressed</td><td class="num">1185</td><td class="num">21.0 s</td><td class="num">20/20</td></tr>
+    <tr><td><strong>Fact sheet</strong></td><td class="num"><strong>405</strong></td><td class="num"><strong>6.2 s</strong></td><td class="num"><strong>20/20</strong></td></tr>
+  </tbody>
+</table>
+
+<p>Six and a half times faster, and <em>more</em> accurate. That second part is
+what I didn't expect, and it's the reason this is worth writing down. Fewer
+tokens should mean less information and worse answers. It didn't.</p>
+
+<h2>The model saw the right number and answered wrong</h2>
+
+<p>To understand why accuracy went up, I dumped the post-softmax attention while
+the model answered a question about a page listing four similar prices — one per
+service, all in the same block.</p>
+
+<table>
+  <thead><tr><th>Document form</th><th>Attention on the right price</th><th>On the wrong one</th><th>Answer</th></tr></thead>
+  <tbody>
+    <tr><td>Prose, dense 3B</td><td class="num">7.0%</td><td class="num">0.6%</td><td>correct</td></tr>
+    <tr><td>Prose, small MoE</td><td class="num">1.9%</td><td class="num">1.7%</td><td><strong>wrong</strong></td></tr>
+    <tr><td><code>label: value</code>, small MoE</td><td class="num">2.9%</td><td class="num">0.4%</td><td><strong>correct</strong></td></tr>
+  </tbody>
+</table>
+
+<p>1.9% against 1.7% is a coin flip. The model was never blind to the number —
+it just couldn't <em>bind</em> it to the question. Prose puts the price and the
+service in the same sentence as everything else; <code>label: value</code> makes
+the binding structural instead of semantic, and the ratio goes from 1.1:1 to
+7:1.</p>
+
+<p>The practical consequence: when a small model gets a fact wrong, "use a
+bigger model" is one answer, but "write the document differently" is often
+cheaper and works better.</p>
+
+<h2>Then I went looking for where the bytes go</h2>
+
+<p>Having stopped guessing, I counted what a model actually reads per generated
+token. Two things came out that I have not seen written down anywhere, both
+invisible on a GPU.</p>
+
+<h2>1. The output head is a quarter of your bandwidth</h2>
+
+<p>In many small models the embedding matrix is <em>tied</em>: it doubles as the
+output projection and is read in full for every token generated, to score all
+151,936 vocabulary entries.</p>
+
+<table>
+  <thead><tr><th>Read per generated token</th><th>MB</th><th>Share</th></tr></thead>
+  <tbody>
+    <tr><td>Output head (tied embedding)</td><td class="num">127.6</td><td class="num"><strong>29.4%</strong></td></tr>
+    <tr><td>Active experts (8 of 232)</td><td class="num">176.2</td><td class="num">40.6%</td></tr>
+    <tr><td>Attention, dense layers, norms</td><td class="num">129.7</td><td class="num">29.9%</td></tr>
+  </tbody>
+</table>
+
+<p>Nearly a third of the bandwidth per token goes to scoring words in languages
+this deployment will never emit. My domain — Italian, my own code, technical
+English — uses 9,314 of those 151,936 entries.</p>
+
+<p>Trimming the vocabulary to 32k turns out to be safe by construction, for two
+reasons worth stating precisely. The tokenizer is byte-level and all 256
+byte-characters are kept, so no text becomes unrepresentable — the worst case is
+that a trimmed word costs an extra token. And the embedding is Q6_K with rows
+spanning a whole number of quantization blocks, so whole rows drop out without
+ever splitting a block: <strong>the surviving weights are bit-for-bit
+identical</strong>. No requantization, no numerical loss.</p>
+
+<p>Measured on the free box, three independent runs, under 2% spread:
+<strong>+17.8% decode</strong>, from 46.7 to 55.0 tokens/second. The 20-question
+fact exam scores the same before and after — 13/13 critical facts both times.
+The cost, measured on held-out text, is 1.9% more tokens for the same document,
+so this pays off most when the input is already short.</p>
+
+<p>The theoretical ceiling from bandwidth alone was +30%. I got +17.8%. The gap
+is time that isn't weight reading, and I'd rather publish the measured number
+than the calculated one.</p>
+
+<h2>2. Weight repacking costs 4.2 GB nobody mentions</h2>
+
+<p>My server showed 9,825 MB resident for a 5.37 GB model. I assumed a leak.
+It isn't:</p>
+
+<blockquote>
+<p><code>load_tensors: CPU_Mapped model buffer size = 5068.51 MiB</code><br>
+<code>load_tensors: CPU_REPACK model buffer size = 4254.45 MiB</code></p>
+</blockquote>
+
+<p>llama.cpp repacks quantized weights at load time into a layout its NEON
+kernels read faster. It's a sensible engineering trade — and on a GPU it doesn't
+exist, which is probably why the memory cost isn't documented anywhere I could
+find.</p>
+
+<p>I had first read the source and concluded the repack only touched 2D tensors,
+which would have spared the MoE experts. The logs said otherwise:
+<code>ffn_gate_exps</code> and <code>ffn_up_exps</code> get repacked too, and
+<code>ffn_down_exps</code> goes from <code>q6_K</code> to <code>q8_0_4x4</code> —
+from 6 bits to 8. The repack doesn't only reorganize; in places it
+<em>expands</em>.</p>
+
+<table>
+  <thead><tr><th>Build</th><th>Resident RAM</th><th>Decode</th></tr></thead>
+  <tbody>
+    <tr><td>Default (repack on)</td><td class="num">9825 MB</td><td class="num">45.96 tok/s</td></tr>
+    <tr><td><code>-DGGML_CPU_REPACK=OFF</code></td><td class="num"><strong>5619 MB</strong></td><td class="num">40.09 tok/s</td></tr>
+  </tbody>
+</table>
+
+<p><strong>−4.2 GB of RAM for −12.8% speed.</strong> On a machine with memory to
+spare that's a bad trade. On an 8 GB box it's the difference between the model
+running at all and not running — which is exactly the hardware this is for.</p>
+
+<h2>What these numbers don't show</h2>
+
+<blockquote class="caveat">
+<p>The fact exam is mine: 20 questions I wrote over one real Italian business
+page, graded by regex. One page, one language, one domain. It is the weakest
+part of this write-up and I'd rather say so than have it pointed out.</p>
+<p>What keeps it honest is that the same exam killed two of my own ideas — the
+faster quantization and the reduced experts, both above. And on that exam the
+fast MoE I serve is beaten by a slower dense 3B. Reformatting the input
+recovered accuracy the fast model was losing; it did not make the small model
+smart. Asked anything with no document supplied, it invents things — I published
+that table too.</p>
+</blockquote>
+
+<p>If you know a public adversarial fact-extraction set for small models, point
+me at it and I'll run it and publish whatever comes out, including a bad
+result.</p>
+
+<h2>The through-line</h2>
+
+<p>Every win here came from measuring where the work actually goes, and every
+loss came from assuming. The kernel bump, the coarser quantization, the reduced
+experts: all reasonable ideas, all wrong on this hardware. The text rewrite,
+the vocabulary trim, the repack switch: all boring, all measurable, all
+significant.</p>
+
+<p>On a CPU, the fastest computation is the one you don't do — whether that's a
+token you never read, a vocabulary entry you never score, or a byte you never
+repack.</p>
+
+<footer>
+<p>The page, the 20 questions and the scorer are in
+<a href="https://github.com/swellweb/reame/tree/main/bench"><code>bench/</code></a>
+and run against any OpenAI-compatible server. Full benchmarks, including the
+negative results, are in
+<a href="https://github.com/swellweb/reame/blob/main/docs/BENCHMARKS.md">BENCHMARKS.md</a>.</p>
+<p>The server is <a href="https://github.com/swellweb/reame">Reame</a>, MIT
+licensed. There's a <a href="https://swellweb.github.io/reame/">live demo</a>
+running on the same free ARM box — one small instance, no autoscaling, so if
+it's slow you're watching the honest capacity of €0/month.</p>
+</footer>
+
+</main>
+</body>
+</html>
