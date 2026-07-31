@@ -294,6 +294,22 @@ int main(int argc, char** argv) {
     int best_of = 1;
     bool serve = false;
 
+    // Running the binary with no arguments is the first thing anyone does
+    // after downloading it. Falling through to the config loader answers that
+    // with "cannot open config file: config/reame.conf", which tells a new
+    // user nothing and stops them there.
+    if (argc == 1) {
+        std::cout << "reame " << reame::version() << "\n\n"
+                  << "Nothing to do yet — try one of these:\n\n"
+                  << "  " << argv[0] << " run qwen2.5-1.5b \"Hello\"\n"
+                  << "      downloads the model on first use, then answers\n\n"
+                  << "  " << argv[0] << " run qwen2.5-1.5b --serve\n"
+                  << "      starts an OpenAI-compatible server on port 8080\n\n"
+                  << "  " << argv[0] << " list\n"
+                  << "      shows the built-in model catalog\n\n";
+        return EXIT_SUCCESS;
+    }
+
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--help" || arg == "-h") {
