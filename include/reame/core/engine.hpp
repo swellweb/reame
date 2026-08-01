@@ -60,6 +60,18 @@ public:
         // draft model (zero draft cost; no draft_model_path needed).
         bool use_prompt_lookup = false;
         int draft_tokens = 16;  // starting speculative draft length
+        // Palimpsest: the server's own past generations become draft
+        // material, so speculation sees across requests and restarts.
+        // Needs prompt lookup and cache_dir; separable from both so the
+        // mechanism can be measured on its own.
+        bool use_corpus = true;
+        // Auto-disable guard, forwarded to the decoder. The defaults judge
+        // speculation on its first 64 drafted tokens and the verdict is
+        // permanent — which starves Palimpsest, whose corpus is empty
+        // exactly then. Exposed so the guard can be measured and tuned
+        // instead of silently deciding for you.
+        std::uint64_t spec_disable_after_drafted = 64;
+        double spec_disable_below_acceptance = 0.15;
         // KV-cache persistence (DwarfStar4-style). Empty = disabled. When
         // set, prompt prefixes are snapshotted to disk and reused across
         // engines/processes, and sessions restore from disk instead of
@@ -188,5 +200,12 @@ bool wants_draft_backend(const ReameEngine::Config& config);
 // file and how to fix it — so the CLI can fail before llama.cpp surfaces a
 // bare "No such file or directory".
 std::string missing_model_file_error(const ReameEngine::Config& config);
+
+// True when the configuration asks for speculative decoding but the engine
+// could not build the decoder: the user configured a feature and is not
+// getting it. Worth a warning, not an info — a silent downgrade cost us a
+// whole benchmark that compared a program against itself.
+bool speculation_silently_off(const ReameEngine::Config& config,
+                              bool decoder_built);
 
 }  // namespace reame::core

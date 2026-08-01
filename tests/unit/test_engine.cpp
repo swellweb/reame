@@ -284,6 +284,26 @@ TEST_CASE("engine with a draft backend generates through the speculative decoder
     CHECK(engine.speculative_metrics()->generated_tokens == 2);
 }
 
+// Prompt-lookup scripting where the target always REJECTS the proposal:
+// the prompt repeats {1,2,...} so lookup keeps proposing, and the target
+// keeps answering something else. Acceptance stays at zero, which is what
+// the auto-disable guard reacts to.
+void script_lookup_rejects(MockBackend* mock) {
+    mock->vocab_size_value = 6;
+    mock->eos_token_value = 5;
+    mock->tokenize_result = {1, 2, 1, 2};
+    mock->piece_map = {{1, "x"}, {2, "y"}, {3, "z"}};
+    mock->decode_queue = {spec_peak(6, 0)};
+    // Every verification rejects at position 0 and corrects to 3, so the
+    // drafted tokens are burnt without ever being accepted.
+    for (int i = 0; i < 40; ++i)
+        mock->decode_batch_queue.push_back(
+            {spec_peak(6, 3), spec_peak(6, 3)});
+    // Once speculation gives up, the plain path finishes the generation.
+    for (int i = 0; i < 40; ++i)
+        mock->decode_queue.push_back(spec_peak(6, 3));
+}
+
 TEST_CASE("engine with prompt lookup speculates without a draft backend") {
     auto cfg = valid_config();
     cfg.use_prompt_lookup = true;
@@ -1133,4 +1153,124 @@ TEST_CASE("[integration] engine generates deterministic greedy text",
     const auto out2 = engine.generate("The capital of Italy is", greedy(8));
     CHECK(out1 == out2);
 #endif
+}
+
+TEST_CASE("the generation corpus can be turned off independently of the cache") {
+    // Palimpsest (the cross-request generation corpus) used to be wired to
+    // cache_dir: the only way to switch it off was to switch the disk KV
+    // cache off with it. That makes it impossible to measure — an A/B where
+    // the "off" arm also loses the prefix cache attributes the difference to
+    // the wrong mechanism.
+    //
+    // Observable effect: CorpusIndex creates <cache_dir>/corpus on
+    // construction, so the directory's presence says whether it was built.
+    const auto corpus_built = [](bool use_corpus) {
+        CacheTempDir dir;
+        auto cfg = valid_config();
+        cfg.cache_dir = dir.path.string();
+        cfg.use_speculative = true;
+        cfg.use_prompt_lookup = true;
+        cfg.use_corpus = use_corpus;
+
+        auto backend = std::make_unique<MockBackend>();
+        script_foobar(backend.get());
+        ReameEngine engine(cfg, std::move(backend));
+        return std::filesystem::exists(dir.path / "corpus");
+    };
+
+    CHECK(corpus_built(true));
+    CHECK_FALSE(corpus_built(false));
+}
+
+TEST_CASE("turning the corpus off leaves the disk KV cache running") {
+    // The point of the flag: isolate one mechanism. If switching the corpus
+    // off also disabled snapshots, the A/B would measure both at once.
+    CacheTempDir dir;
+    auto cfg = valid_config();
+    cfg.cache_dir = dir.path.string();
+    cfg.cache_block_tokens = 1;
+    cfg.use_speculative = true;
+    cfg.use_prompt_lookup = true;
+    cfg.use_corpus = false;
+
+    auto backend = std::make_unique<MockBackend>();
+    MockBackend* mock = backend.get();
+    script_cached(mock, /*with_prefill_logits=*/true);
+    mock->state_data_result = {'W', '1'};
+    ReameEngine engine(cfg, std::move(backend));
+    engine.generate("cache me", greedy(4));
+
+    CHECK_FALSE(std::filesystem::exists(dir.path / "corpus"));
+    // Snapshots still land on disk: something other than the corpus wrote.
+    CHECK(std::filesystem::exists(dir.path));
+    bool wrote_something = false;
+    for (const auto& e : std::filesystem::recursive_directory_iterator(dir.path)) {
+        if (e.is_regular_file()) wrote_something = true;
+    }
+    CHECK(wrote_something);
+}
+
+TEST_CASE("the auto-disable guard is configurable from the engine") {
+    // The decoder gives up on speculation after `disable_after_drafted`
+    // tokens if acceptance is below threshold, permanently. The defaults
+    // judge the first 64 drafted tokens — exactly when Palimpsest's corpus
+    // is still empty — so the mechanism is condemned before it can warm up.
+    // Measuring it at all requires being able to move the guard.
+    const auto drafted_with = [](std::uint64_t after, double below) {
+        auto cfg = valid_config();
+        cfg.use_prompt_lookup = true;
+        cfg.draft_tokens = 2;
+        cfg.spec_disable_after_drafted = after;
+        cfg.spec_disable_below_acceptance = below;
+
+        auto target = std::make_unique<MockBackend>();
+        MockBackend* mock = target.get();
+        script_lookup_rejects(mock);
+        ReameEngine engine(cfg, std::move(target));
+        engine.generate("xyxy", greedy(8));
+        REQUIRE(engine.speculative_metrics() != nullptr);
+        return engine.speculative_metrics()->total_draft_tokens;
+    };
+
+    // Same script, same rejections: the only difference is the guard. A
+    // strict guard stops drafting early; a loose one keeps trying.
+    const auto stretto = drafted_with(2, 0.99);
+    const auto largo = drafted_with(10'000, 0.99);
+    CHECK(stretto < largo);
+}
+
+TEST_CASE("a configured-but-missing speculation is reported, not swallowed") {
+    // The engine downgrades to classic decoding when the architecture cannot
+    // roll back rejected drafts. That is the right behaviour — but it used to
+    // be announced at info level, invisible under the default `warn`. A
+    // benchmark then ran 96 requests comparing a program against itself,
+    // because both arms had the speculation their config asked for silently
+    // switched off. The predicate exists so the two call sites in main.cpp
+    // agree on when to shout.
+    auto cfg = valid_config();
+
+    SECTION("prompt lookup asked for, decoder not built") {
+        cfg.use_speculative = true;
+        cfg.use_prompt_lookup = true;
+        CHECK(speculation_silently_off(cfg, /*decoder_built=*/false));
+        CHECK_FALSE(speculation_silently_off(cfg, true));
+    }
+
+    SECTION("draft model asked for, decoder not built") {
+        cfg.use_speculative = true;
+        cfg.use_prompt_lookup = false;
+        cfg.draft_model_path = "/models/draft.gguf";
+        CHECK(speculation_silently_off(cfg, false));
+    }
+
+    SECTION("nothing asked for: silence is correct") {
+        cfg.use_speculative = false;
+        cfg.use_prompt_lookup = true;
+        CHECK_FALSE(speculation_silently_off(cfg, false));
+
+        cfg.use_speculative = true;
+        cfg.use_prompt_lookup = false;
+        cfg.draft_model_path.clear();
+        CHECK_FALSE(speculation_silently_off(cfg, false));
+    }
 }

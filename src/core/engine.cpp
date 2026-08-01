@@ -90,6 +90,14 @@ std::string missing_model_file_error(const ReameEngine::Config& config) {
     return "";
 }
 
+bool speculation_silently_off(const ReameEngine::Config& config,
+                              bool decoder_built) {
+    const bool asked = config.use_speculative &&
+                       (config.use_prompt_lookup ||
+                        !config.draft_model_path.empty());
+    return asked && !decoder_built;
+}
+
 struct ReameEngine::Impl {
     std::unique_ptr<LlamaBackend> backend;
     std::unique_ptr<LlamaBackend> draft_backend;
@@ -202,12 +210,14 @@ ReameEngine::ReameEngine(const Config& config,
         pimpl_->draft_backend = std::move(draft_backend);
         speculative::SpeculativeDecoder::Config dc;
         dc.draft_tokens = config.draft_tokens;
+        dc.disable_after_drafted = config.spec_disable_after_drafted;
+        dc.disable_below_acceptance = config.spec_disable_below_acceptance;
         if (config.use_prompt_lookup) {
             dc.mode =
                 speculative::SpeculativeDecoder::Config::Mode::PromptLookup;
             // Server memory: past generations become draft material, and
             // it lives next to the KV snapshots when the cache is on.
-            if (!config.cache_dir.empty()) {
+            if (config.use_corpus && !config.cache_dir.empty()) {
                 palimpsest::CorpusIndex::Config cc;
                 cc.directory =
                     std::filesystem::path(config.cache_dir) / "corpus";

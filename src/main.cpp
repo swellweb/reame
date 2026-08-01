@@ -147,11 +147,13 @@ int run_zeroconfig(int argc, char** argv) {
                  " threads)...");
         auto engine =
             std::make_shared<reame::core::ReameEngine>(cfg);
-        if (cfg.use_speculative &&
-            (cfg.use_prompt_lookup || !cfg.draft_model_path.empty()) &&
-            engine->speculative_metrics() == nullptr)
-            log.info("speculation off: recurrent/hybrid architecture "
-                     "cannot roll back rejected drafts");
+        if (reame::core::speculation_silently_off(
+                cfg, engine->speculative_metrics() != nullptr))
+            log.warn("speculation off: this architecture cannot roll "
+                     "back rejected drafts. You configured speculative "
+                     "decoding and are not getting it — serve a model "
+                     "that supports rollback (qwen2, qwen3moe, llama) "
+                     "or set [speculative] enabled = false.");
         log.info("ready.");
 
         if (serve) {
@@ -387,6 +389,12 @@ int main(int argc, char** argv) {
             cfg.get_string("speculative.draft_model_path", "");
         engine_cfg.draft_tokens =
             static_cast<int>(cfg.get_int("speculative.draft_tokens", 16));
+        engine_cfg.use_corpus = cfg.get_bool("speculative.corpus", true);
+        engine_cfg.spec_disable_after_drafted =
+            static_cast<std::uint64_t>(cfg.get_int(
+                "speculative.disable_after_drafted", 64));
+        engine_cfg.spec_disable_below_acceptance =
+            cfg.get_double("speculative.disable_below_acceptance", 0.15);
         engine_cfg.cache_dir = cfg.get_string("cache.directory", "");
         engine_cfg.cache_max_mb = static_cast<std::uint64_t>(
             cfg.get_int("cache.max_size_mb", 512));
@@ -449,11 +457,13 @@ int main(int argc, char** argv) {
                           ? std::string("prompt-lookup n-grams, no draft model")
                           : "draft " + engine_cfg.draft_model_path) +
                      ")");
-        else if (engine_cfg.use_speculative &&
-                 (engine_cfg.use_prompt_lookup ||
-                  !engine_cfg.draft_model_path.empty()))
-            log.info("speculative decoding: off (recurrent/hybrid "
-                     "architecture cannot roll back rejected drafts)");
+        else if (reame::core::speculation_silently_off(engine_cfg, false))
+            log.warn("speculative decoding: off — this architecture "
+                     "cannot roll back rejected drafts. You configured "
+                     "it and are not getting it: serve a model that "
+                     "supports rollback (qwen2, qwen3moe, llama), or "
+                     "set [speculative] enabled = false to silence "
+                     "this.");
 
         if (serve) {
 #ifdef REAME_WITH_SERVER
