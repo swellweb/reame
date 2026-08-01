@@ -1,0 +1,853 @@
+{
+ "spento": {
+  "mediana": 31.38,
+  "prime": 30.95,
+  "ultime": 30.96
+ },
+ "acceso": {
+  "mediana": 30.19,
+  "prime": 27.04,
+  "ultime": 36.62
+ },
+ "risposte_divergenti": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39,
+  40,
+  41,
+  42,
+  43,
+  44,
+  45,
+  46,
+  47
+ ],
+ "acceptance_spento": {
+  "acceptance_rate": 0.3839715952320568,
+  "draft_speed_tps": 49765.86567477226,
+  "overall_speed_tps": 38.691206625783884,
+  "target_speed_tps": 38.87531127174601,
+  "total_accepted_tokens": 1514,
+  "total_draft_tokens": 3943,
+  "total_rejected_tokens": 2429
+ },
+ "acceptance_acceso": {
+  "acceptance_rate": 0.40251433612704013,
+  "draft_speed_tps": 33876.49721471916,
+  "overall_speed_tps": 37.18819668814067,
+  "target_speed_tps": 37.370021514774585,
+  "total_accepted_tokens": 1825,
+  "total_draft_tokens": 4534,
+  "total_rejected_tokens": 2709
+ },
+ "righe_spento": [
+  {
+   "i": 0,
+   "gettoni": 160,
+   "secondi": 7.747,
+   "tok_s": 20.65,
+   "blocco": 0,
+   "impronta": "1a2571569587"
+  },
+  {
+   "i": 1,
+   "gettoni": 160,
+   "secondi": 4.44,
+   "tok_s": 36.04,
+   "blocco": 0,
+   "impronta": "9fc2baf869f7"
+  },
+  {
+   "i": 2,
+   "gettoni": 160,
+   "secondi": 5.221,
+   "tok_s": 30.65,
+   "blocco": 0,
+   "impronta": "6b1d3ec08448"
+  },
+  {
+   "i": 3,
+   "gettoni": 160,
+   "secondi": 5.119,
+   "tok_s": 31.26,
+   "blocco": 0,
+   "impronta": "20196860561d"
+  },
+  {
+   "i": 4,
+   "gettoni": 160,
+   "secondi": 5.268,
+   "tok_s": 30.37,
+   "blocco": 0,
+   "impronta": "7aae57bac2db"
+  },
+  {
+   "i": 5,
+   "gettoni": 160,
+   "secondi": 5.072,
+   "tok_s": 31.55,
+   "blocco": 0,
+   "impronta": "949ed6f1f65a"
+  },
+  {
+   "i": 6,
+   "gettoni": 160,
+   "secondi": 6.474,
+   "tok_s": 24.71,
+   "blocco": 0,
+   "impronta": "a9e0c757f2c3"
+  },
+  {
+   "i": 7,
+   "gettoni": 160,
+   "secondi": 6.441,
+   "tok_s": 24.84,
+   "blocco": 0,
+   "impronta": "3add3ca0e351"
+  },
+  {
+   "i": 8,
+   "gettoni": 160,
+   "secondi": 5.318,
+   "tok_s": 30.08,
+   "blocco": 0,
+   "impronta": "9493dd8f5c30"
+  },
+  {
+   "i": 9,
+   "gettoni": 160,
+   "secondi": 5.147,
+   "tok_s": 31.08,
+   "blocco": 0,
+   "impronta": "5ffbd2d1d7bb"
+  },
+  {
+   "i": 10,
+   "gettoni": 160,
+   "secondi": 5.416,
+   "tok_s": 29.54,
+   "blocco": 0,
+   "impronta": "4df850eed46d"
+  },
+  {
+   "i": 11,
+   "gettoni": 160,
+   "secondi": 6.394,
+   "tok_s": 25.02,
+   "blocco": 0,
+   "impronta": "70cd9cf4765c"
+  },
+  {
+   "i": 12,
+   "gettoni": 160,
+   "secondi": 4.921,
+   "tok_s": 32.51,
+   "blocco": 0,
+   "impronta": "d635ec5dcb32"
+  },
+  {
+   "i": 13,
+   "gettoni": 160,
+   "secondi": 5.149,
+   "tok_s": 31.08,
+   "blocco": 0,
+   "impronta": "333dfa3623ad"
+  },
+  {
+   "i": 14,
+   "gettoni": 160,
+   "secondi": 4.056,
+   "tok_s": 39.45,
+   "blocco": 0,
+   "impronta": "bb2456d8d029"
+  },
+  {
+   "i": 15,
+   "gettoni": 160,
+   "secondi": 4.797,
+   "tok_s": 33.35,
+   "blocco": 0,
+   "impronta": "e4826b2399c3"
+  },
+  {
+   "i": 16,
+   "gettoni": 160,
+   "secondi": 5.347,
+   "tok_s": 29.92,
+   "blocco": 0,
+   "impronta": "a09553002ffb"
+  },
+  {
+   "i": 17,
+   "gettoni": 160,
+   "secondi": 5.912,
+   "tok_s": 27.06,
+   "blocco": 0,
+   "impronta": "36d8d28e7adf"
+  },
+  {
+   "i": 18,
+   "gettoni": 160,
+   "secondi": 5.076,
+   "tok_s": 31.52,
+   "blocco": 0,
+   "impronta": "8c90153b0dfb"
+  },
+  {
+   "i": 19,
+   "gettoni": 160,
+   "secondi": 5.024,
+   "tok_s": 31.85,
+   "blocco": 0,
+   "impronta": "f55ef0bed9da"
+  },
+  {
+   "i": 20,
+   "gettoni": 160,
+   "secondi": 4.835,
+   "tok_s": 33.09,
+   "blocco": 0,
+   "impronta": "2e212ac1461d"
+  },
+  {
+   "i": 21,
+   "gettoni": 160,
+   "secondi": 4.61,
+   "tok_s": 34.7,
+   "blocco": 0,
+   "impronta": "93bbbcec74c0"
+  },
+  {
+   "i": 22,
+   "gettoni": 160,
+   "secondi": 5.626,
+   "tok_s": 28.44,
+   "blocco": 0,
+   "impronta": "402282dcd253"
+  },
+  {
+   "i": 23,
+   "gettoni": 160,
+   "secondi": 5.778,
+   "tok_s": 27.69,
+   "blocco": 0,
+   "impronta": "65abda9a7149"
+  },
+  {
+   "i": 0,
+   "gettoni": 160,
+   "secondi": 7.132,
+   "tok_s": 22.43,
+   "blocco": 1,
+   "impronta": "1a2571569587"
+  },
+  {
+   "i": 1,
+   "gettoni": 160,
+   "secondi": 4.759,
+   "tok_s": 33.62,
+   "blocco": 1,
+   "impronta": "9fc2baf869f7"
+  },
+  {
+   "i": 2,
+   "gettoni": 160,
+   "secondi": 4.658,
+   "tok_s": 34.35,
+   "blocco": 1,
+   "impronta": "6b1d3ec08448"
+  },
+  {
+   "i": 3,
+   "gettoni": 160,
+   "secondi": 5.245,
+   "tok_s": 30.5,
+   "blocco": 1,
+   "impronta": "20196860561d"
+  },
+  {
+   "i": 4,
+   "gettoni": 160,
+   "secondi": 5.079,
+   "tok_s": 31.5,
+   "blocco": 1,
+   "impronta": "7aae57bac2db"
+  },
+  {
+   "i": 5,
+   "gettoni": 160,
+   "secondi": 4.69,
+   "tok_s": 34.12,
+   "blocco": 1,
+   "impronta": "949ed6f1f65a"
+  },
+  {
+   "i": 6,
+   "gettoni": 160,
+   "secondi": 4.419,
+   "tok_s": 36.21,
+   "blocco": 1,
+   "impronta": "a9e0c757f2c3"
+  },
+  {
+   "i": 7,
+   "gettoni": 160,
+   "secondi": 6.102,
+   "tok_s": 26.22,
+   "blocco": 1,
+   "impronta": "3add3ca0e351"
+  },
+  {
+   "i": 8,
+   "gettoni": 160,
+   "secondi": 5.636,
+   "tok_s": 28.39,
+   "blocco": 1,
+   "impronta": "9493dd8f5c30"
+  },
+  {
+   "i": 9,
+   "gettoni": 160,
+   "secondi": 5.055,
+   "tok_s": 31.65,
+   "blocco": 1,
+   "impronta": "5ffbd2d1d7bb"
+  },
+  {
+   "i": 10,
+   "gettoni": 160,
+   "secondi": 4.937,
+   "tok_s": 32.41,
+   "blocco": 1,
+   "impronta": "4df850eed46d"
+  },
+  {
+   "i": 11,
+   "gettoni": 160,
+   "secondi": 5.944,
+   "tok_s": 26.92,
+   "blocco": 1,
+   "impronta": "70cd9cf4765c"
+  },
+  {
+   "i": 12,
+   "gettoni": 160,
+   "secondi": 6.011,
+   "tok_s": 26.62,
+   "blocco": 1,
+   "impronta": "d635ec5dcb32"
+  },
+  {
+   "i": 13,
+   "gettoni": 160,
+   "secondi": 4.429,
+   "tok_s": 36.13,
+   "blocco": 1,
+   "impronta": "333dfa3623ad"
+  },
+  {
+   "i": 14,
+   "gettoni": 160,
+   "secondi": 3.85,
+   "tok_s": 41.56,
+   "blocco": 1,
+   "impronta": "bb2456d8d029"
+  },
+  {
+   "i": 15,
+   "gettoni": 160,
+   "secondi": 4.833,
+   "tok_s": 33.11,
+   "blocco": 1,
+   "impronta": "e4826b2399c3"
+  },
+  {
+   "i": 16,
+   "gettoni": 160,
+   "secondi": 4.443,
+   "tok_s": 36.01,
+   "blocco": 1,
+   "impronta": "a09553002ffb"
+  },
+  {
+   "i": 17,
+   "gettoni": 160,
+   "secondi": 5.063,
+   "tok_s": 31.6,
+   "blocco": 1,
+   "impronta": "36d8d28e7adf"
+  },
+  {
+   "i": 18,
+   "gettoni": 160,
+   "secondi": 5.047,
+   "tok_s": 31.7,
+   "blocco": 1,
+   "impronta": "8c90153b0dfb"
+  },
+  {
+   "i": 19,
+   "gettoni": 160,
+   "secondi": 6.172,
+   "tok_s": 25.92,
+   "blocco": 1,
+   "impronta": "f55ef0bed9da"
+  },
+  {
+   "i": 20,
+   "gettoni": 160,
+   "secondi": 5.293,
+   "tok_s": 30.23,
+   "blocco": 1,
+   "impronta": "2e212ac1461d"
+  },
+  {
+   "i": 21,
+   "gettoni": 160,
+   "secondi": 4.402,
+   "tok_s": 36.35,
+   "blocco": 1,
+   "impronta": "93bbbcec74c0"
+  },
+  {
+   "i": 22,
+   "gettoni": 160,
+   "secondi": 4.835,
+   "tok_s": 33.09,
+   "blocco": 1,
+   "impronta": "402282dcd253"
+  },
+  {
+   "i": 23,
+   "gettoni": 160,
+   "secondi": 5.62,
+   "tok_s": 28.47,
+   "blocco": 1,
+   "impronta": "65abda9a7149"
+  }
+ ],
+ "righe_acceso": [
+  {
+   "i": 0,
+   "gettoni": 160,
+   "secondi": 5.827,
+   "tok_s": 27.46,
+   "blocco": 0,
+   "impronta": "1a2571569587"
+  },
+  {
+   "i": 1,
+   "gettoni": 160,
+   "secondi": 5.992,
+   "tok_s": 26.7,
+   "blocco": 0,
+   "impronta": "a49c28d0107c"
+  },
+  {
+   "i": 2,
+   "gettoni": 160,
+   "secondi": 10.19,
+   "tok_s": 15.7,
+   "blocco": 0,
+   "impronta": "ba65b88ada4a"
+  },
+  {
+   "i": 3,
+   "gettoni": 160,
+   "secondi": 6.075,
+   "tok_s": 26.34,
+   "blocco": 0,
+   "impronta": "fed3e27357a9"
+  },
+  {
+   "i": 4,
+   "gettoni": 160,
+   "secondi": 5.718,
+   "tok_s": 27.98,
+   "blocco": 0,
+   "impronta": "b51f63755c16"
+  },
+  {
+   "i": 5,
+   "gettoni": 160,
+   "secondi": 5.845,
+   "tok_s": 27.38,
+   "blocco": 0,
+   "impronta": "f825ca11289e"
+  },
+  {
+   "i": 6,
+   "gettoni": 160,
+   "secondi": 5.461,
+   "tok_s": 29.3,
+   "blocco": 0,
+   "impronta": "3964135f0c76"
+  },
+  {
+   "i": 7,
+   "gettoni": 160,
+   "secondi": 5.327,
+   "tok_s": 30.04,
+   "blocco": 0,
+   "impronta": "c65d2a7b8dd2"
+  },
+  {
+   "i": 8,
+   "gettoni": 160,
+   "secondi": 5.873,
+   "tok_s": 27.24,
+   "blocco": 0,
+   "impronta": "94d320c3a842"
+  },
+  {
+   "i": 9,
+   "gettoni": 160,
+   "secondi": 6.298,
+   "tok_s": 25.41,
+   "blocco": 0,
+   "impronta": "dd4938e13c87"
+  },
+  {
+   "i": 10,
+   "gettoni": 160,
+   "secondi": 7.033,
+   "tok_s": 22.75,
+   "blocco": 0,
+   "impronta": "27406098ee9f"
+  },
+  {
+   "i": 11,
+   "gettoni": 160,
+   "secondi": 6.833,
+   "tok_s": 23.42,
+   "blocco": 0,
+   "impronta": "646dc4e8966d"
+  },
+  {
+   "i": 12,
+   "gettoni": 160,
+   "secondi": 5.191,
+   "tok_s": 30.82,
+   "blocco": 0,
+   "impronta": "53553b1c0b10"
+  },
+  {
+   "i": 13,
+   "gettoni": 160,
+   "secondi": 5.071,
+   "tok_s": 31.55,
+   "blocco": 0,
+   "impronta": "c5a3ba51528f"
+  },
+  {
+   "i": 14,
+   "gettoni": 160,
+   "secondi": 3.342,
+   "tok_s": 47.88,
+   "blocco": 0,
+   "impronta": "82cee4614d01"
+  },
+  {
+   "i": 15,
+   "gettoni": 160,
+   "secondi": 4.883,
+   "tok_s": 32.77,
+   "blocco": 0,
+   "impronta": "ea15a681a516"
+  },
+  {
+   "i": 16,
+   "gettoni": 160,
+   "secondi": 6.542,
+   "tok_s": 24.46,
+   "blocco": 0,
+   "impronta": "bb610f109791"
+  },
+  {
+   "i": 17,
+   "gettoni": 160,
+   "secondi": 4.715,
+   "tok_s": 33.93,
+   "blocco": 0,
+   "impronta": "9cb1915bd292"
+  },
+  {
+   "i": 18,
+   "gettoni": 160,
+   "secondi": 4.667,
+   "tok_s": 34.29,
+   "blocco": 0,
+   "impronta": "6f57eb9e5a32"
+  },
+  {
+   "i": 19,
+   "gettoni": 160,
+   "secondi": 6.832,
+   "tok_s": 23.42,
+   "blocco": 0,
+   "impronta": "5b08839f91da"
+  },
+  {
+   "i": 20,
+   "gettoni": 160,
+   "secondi": 4.391,
+   "tok_s": 36.44,
+   "blocco": 0,
+   "impronta": "d9631e95ec50"
+  },
+  {
+   "i": 21,
+   "gettoni": 160,
+   "secondi": 3.917,
+   "tok_s": 40.85,
+   "blocco": 0,
+   "impronta": "b038f8d3f232"
+  },
+  {
+   "i": 22,
+   "gettoni": 160,
+   "secondi": 4.39,
+   "tok_s": 36.44,
+   "blocco": 0,
+   "impronta": "5fac5101f1e8"
+  },
+  {
+   "i": 23,
+   "gettoni": 160,
+   "secondi": 7.146,
+   "tok_s": 22.39,
+   "blocco": 0,
+   "impronta": "8444c2edb781"
+  },
+  {
+   "i": 0,
+   "gettoni": 160,
+   "secondi": 6.309,
+   "tok_s": 25.36,
+   "blocco": 1,
+   "impronta": "1a2571569587"
+  },
+  {
+   "i": 1,
+   "gettoni": 160,
+   "secondi": 4.673,
+   "tok_s": 34.24,
+   "blocco": 1,
+   "impronta": "a49c28d0107c"
+  },
+  {
+   "i": 2,
+   "gettoni": 160,
+   "secondi": 5.313,
+   "tok_s": 30.12,
+   "blocco": 1,
+   "impronta": "ba65b88ada4a"
+  },
+  {
+   "i": 3,
+   "gettoni": 160,
+   "secondi": 6.987,
+   "tok_s": 22.9,
+   "blocco": 1,
+   "impronta": "fed3e27357a9"
+  },
+  {
+   "i": 4,
+   "gettoni": 160,
+   "secondi": 5.014,
+   "tok_s": 31.91,
+   "blocco": 1,
+   "impronta": "b51f63755c16"
+  },
+  {
+   "i": 5,
+   "gettoni": 160,
+   "secondi": 5.382,
+   "tok_s": 29.73,
+   "blocco": 1,
+   "impronta": "f825ca11289e"
+  },
+  {
+   "i": 6,
+   "gettoni": 160,
+   "secondi": 5.075,
+   "tok_s": 31.52,
+   "blocco": 1,
+   "impronta": "3964135f0c76"
+  },
+  {
+   "i": 7,
+   "gettoni": 160,
+   "secondi": 8.455,
+   "tok_s": 18.92,
+   "blocco": 1,
+   "impronta": "c65d2a7b8dd2"
+  },
+  {
+   "i": 8,
+   "gettoni": 160,
+   "secondi": 7.092,
+   "tok_s": 22.56,
+   "blocco": 1,
+   "impronta": "94d320c3a842"
+  },
+  {
+   "i": 9,
+   "gettoni": 160,
+   "secondi": 5.023,
+   "tok_s": 31.85,
+   "blocco": 1,
+   "impronta": "dd4938e13c87"
+  },
+  {
+   "i": 10,
+   "gettoni": 160,
+   "secondi": 4.822,
+   "tok_s": 33.18,
+   "blocco": 1,
+   "impronta": "27406098ee9f"
+  },
+  {
+   "i": 11,
+   "gettoni": 160,
+   "secondi": 4.869,
+   "tok_s": 32.86,
+   "blocco": 1,
+   "impronta": "646dc4e8966d"
+  },
+  {
+   "i": 12,
+   "gettoni": 160,
+   "secondi": 5.149,
+   "tok_s": 31.07,
+   "blocco": 1,
+   "impronta": "53553b1c0b10"
+  },
+  {
+   "i": 13,
+   "gettoni": 160,
+   "secondi": 6.55,
+   "tok_s": 24.43,
+   "blocco": 1,
+   "impronta": "c5a3ba51528f"
+  },
+  {
+   "i": 14,
+   "gettoni": 160,
+   "secondi": 4.392,
+   "tok_s": 36.43,
+   "blocco": 1,
+   "impronta": "82cee4614d01"
+  },
+  {
+   "i": 15,
+   "gettoni": 160,
+   "secondi": 5.194,
+   "tok_s": 30.8,
+   "blocco": 1,
+   "impronta": "ea15a681a516"
+  },
+  {
+   "i": 16,
+   "gettoni": 160,
+   "secondi": 5.319,
+   "tok_s": 30.08,
+   "blocco": 1,
+   "impronta": "bb610f109791"
+  },
+  {
+   "i": 17,
+   "gettoni": 160,
+   "secondi": 6.033,
+   "tok_s": 26.52,
+   "blocco": 1,
+   "impronta": "9cb1915bd292"
+  },
+  {
+   "i": 18,
+   "gettoni": 160,
+   "secondi": 4.346,
+   "tok_s": 36.82,
+   "blocco": 1,
+   "impronta": "6f57eb9e5a32"
+  },
+  {
+   "i": 19,
+   "gettoni": 160,
+   "secondi": 4.393,
+   "tok_s": 36.42,
+   "blocco": 1,
+   "impronta": "5b08839f91da"
+  },
+  {
+   "i": 20,
+   "gettoni": 160,
+   "secondi": 4.719,
+   "tok_s": 33.91,
+   "blocco": 1,
+   "impronta": "d9631e95ec50"
+  },
+  {
+   "i": 21,
+   "gettoni": 160,
+   "secondi": 3.991,
+   "tok_s": 40.1,
+   "blocco": 1,
+   "impronta": "b038f8d3f232"
+  },
+  {
+   "i": 22,
+   "gettoni": 160,
+   "secondi": 4.284,
+   "tok_s": 37.35,
+   "blocco": 1,
+   "impronta": "5fac5101f1e8"
+  },
+  {
+   "i": 23,
+   "gettoni": 160,
+   "secondi": 5.289,
+   "tok_s": 30.25,
+   "blocco": 1,
+   "impronta": "8444c2edb781"
+  }
+ ],
+ "rapporto_appaiato_mediano": 0.9653,
+ "appaiati_a_favore_di_acceso": 23,
+ "appaiati_totali": 48
+}
