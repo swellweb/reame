@@ -28,6 +28,12 @@ mixture-of-experts model reads only its active parameters per token; a dense
 model reads all of them. On memory-bandwidth-bound CPU decode, that is the
 whole ballgame.
 
+Every model on this page is somebody else's. Reame is the server; the weights
+are third-party releases under their own licenses. The one we lean on most is
+[ATH-MaaS/Marco-Nano-Instruct](https://huggingface.co/ATH-MaaS/Marco-Nano-Instruct),
+Apache-2.0 — 232 experts, 8 active per token. The name is a coincidence, not an
+attribution.
+
 | Machine | Model | Type | Decode | Verdict |
 |---|---|---|---|---|
 | Oracle free (4 core) | Marco-Nano 8B-A0.6B | MoE, 0.6B active | **46.2 tok/s** | fastest here; multilingual |
@@ -384,3 +390,46 @@ and after). The theoretical ceiling from bandwidth alone was +30%; the gap is
 time that isn't weight reading. The cost, measured on held-out text, is +1.9%
 more tokens for the same document — so this pays off most when the input is
 already short, which is exactly what the fact sheet makes it.
+
+## Resident memory: 9.8 GB for a 5.4 GB model
+
+The demo showed 9,825 MB resident for a 5.37 GB file. It is not a leak — the
+load log says so directly:
+
+```
+load_tensors: CPU_Mapped model buffer size =  5068.51 MiB
+load_tensors: CPU_REPACK model buffer size =  4254.45 MiB
+```
+
+llama.cpp repacks quantized weights at load time into a layout its NEON kernels
+read faster. The repacked copy is *additional* to the mapped file, and in places
+it expands rather than reorganizes: `ffn_down_exps` goes from `q6_K` to
+`q8_0_4x4` — 6 bits to 8. This is a build-time switch, not a runtime one.
+
+| Build | Resident | Decode |
+|---|---|---|
+| Default (`GGML_CPU_REPACK=ON`) | 9,825 MB | 45.96 tok/s |
+| `-DGGML_CPU_REPACK=OFF` | **5,619 MB** | 40.09 tok/s |
+
+**−4.2 GB of RAM for −12.8% speed.** On a box with memory to spare that is a bad
+trade. On an 8 GB box it is the difference between the model running and not.
+
+### The repack also pins the weights, which we did not design for
+
+A reader on r/LocalLLaMA raised a failure mode we had not considered: if the
+weights live in page cache and something evicts them overnight, the first
+request next morning pays a disk read.
+
+It does not happen with the default build, and the reason is a side effect. The
+repacked weights are **anonymous** memory, not page cache, and the box has no
+swap — so the kernel has nowhere to put them and cannot reclaim them. Measured
+on the running demo after 21 days of uptime: 4.73 GB anonymous, and the mapped
+file still **92% resident** (4.95 of 5.37 GB, from `smaps_rollup`).
+
+With `REPACK=OFF` the weights are *only* the mapping, and that protection is
+gone — so the build we recommend for small boxes is the one exposed to this.
+We have not observed an eviction there, but the mechanism is real, and on a box
+that runs nightly jobs touching large files it is worth pinning the model with
+`vmtouch` or `mlock`. One trap if you try: `ulimit -l` on an Oracle A1 defaults
+to 2.9 GB, below the model size, so `mlock` needs `LimitMEMLOCK=infinity` in the
+systemd unit to have any chance of succeeding.

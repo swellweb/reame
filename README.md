@@ -122,6 +122,11 @@ including the negative results that shaped the design.
 | Judgment without hallucinating | Qwen3.5-9B: **zero invented findings**, full SEO audit in 73s | M3 Pro |
 | Architecture > size | dense 27B **~0.1 tok/s** — 250× slower than a 7B MoE, same box | Oracle free |
 
+The models are not ours. Reame is the server; the weights are third-party
+releases under their own licenses. The demo runs
+[ATH-MaaS/Marco-Nano-Instruct](https://huggingface.co/ATH-MaaS/Marco-Nano-Instruct),
+Apache-2.0 — the name is a coincidence, not an attribution.
+
 **[Full benchmarks, methodology and negative results → docs/BENCHMARKS.md](docs/BENCHMARKS.md)**
 
 Negative results that matter. A 30B-class MoE on the maxed free tier answered the same extraction questions perfectly — and ten times slower than a 7B-A1B that scored the same: when the answer lives in the context, extra parameters buy nothing. Use 30B-class models for hard reasoning in background batches, not for serving. **We also published the correction to our own claim**: that parity holds on an easy needle test, and breaks on a harder one where four similar prices sit in the same block — a 1B-active model reads the right number but cannot tell it apart from its neighbour (we dumped the attention to prove it), while a 3B dense model can. Reformatting the page fixes it without changing the model. Two more ideas we built and killed the same week: 4-bit Q4_0 quantization (+37% prefill, −5 facts) and halving the active experts during prefill (+44% prefill, but the cached KV comes out corrupted). On heavily oversubscribed shared vCPUs a draft
