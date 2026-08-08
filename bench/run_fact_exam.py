@@ -30,11 +30,21 @@ import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).parent
+sys.path.insert(0, str(HERE))
+from retrieval import select  # noqa: E402  (needs HERE on the path)
+
+# The first three are fixed documents: every question sees the same text, so a
+# prefix cache prefills once and the other 19 questions ride for free.
+# "retrieval" is not a file — it picks a different slice of the prose for each
+# question, which means every question pays its own prefill. That trade is the
+# thing being measured, so the report prints total wall clock as well as TTFT.
 FORMS = {
     "prose": "page_prose.txt",
     "compressed": "page_compressed.txt",
     "factsheet": "page_factsheet.txt",
+    "retrieval": None,
 }
+RETRIEVAL_K = 3
 TEMPLATE = (
     "Documento:\n{doc}\n\n"
     "Rispondi alla domanda usando SOLO il documento. Rispondi con il solo dato\n"
@@ -95,19 +105,32 @@ def main():
     ap.add_argument("--form", choices=list(FORMS), action="append",
                     help="default: all three")
     ap.add_argument("--verbose", action="store_true", help="print every answer")
+    ap.add_argument("--questions", default="questions.jsonl",
+                    help="question file; questions_paraphrased.jsonl asks the "
+                         "same 20 facts in words the page does not use")
     args = ap.parse_args()
 
-    questions = [json.loads(l) for l in (HERE / "questions.jsonl").open(encoding="utf-8")]
+    questions = [json.loads(l) for l in (HERE / args.questions).open(encoding="utf-8")]
     n_crit = sum(1 for q in questions if q["crit"] == "C")
     print(f"{len(questions)} questions ({n_crit} critical) · model={args.model}\n")
 
     rows = []
     for form in (args.form or list(FORMS)):
-        doc = (HERE / FORMS[form]).read_text(encoding="utf-8")
+        if form == "retrieval":
+            source = (HERE / FORMS["prose"]).read_text(encoding="utf-8")
+            doc_for = lambda q: select(q["domanda"], source, k=RETRIEVAL_K)
+        else:
+            fixed = (HERE / FORMS[form]).read_text(encoding="utf-8")
+            doc_for = lambda q: fixed
         # first call carries the cold prefill: that is the TTFT we report
-        _, ttft = ask(args.server, args.model, args.api_key, doc, questions[0]["domanda"])
+        _, ttft = ask(args.server, args.model, args.api_key,
+                      doc_for(questions[0]), questions[0]["domanda"])
         ok = crit_ok = hallu = miss = 0
+        words = 0
+        started = time.monotonic()
         for q in questions:
+            doc = doc_for(q)
+            words += len(doc.split())
             answer, _ = ask(args.server, args.model, args.api_key, doc, q["domanda"])
             verdict = grade(answer, q)
             ok += verdict == "OK"
@@ -116,9 +139,11 @@ def main():
             miss += verdict == "MISS"
             if args.verbose and verdict != "OK":
                 print(f"  [{form}] {q['id']} {verdict}: {answer.strip()[:70]!r}")
-        rows.append((form, len(doc.split()), ttft, ok, crit_ok, hallu, miss))
-        print(f"{form:11s} TTFT {ttft:6.1f}s   {ok:2d}/{len(questions)}   "
-              f"critical {crit_ok:2d}/{n_crit}   hallucinated {hallu}   said-unknown {miss}")
+        total = time.monotonic() - started
+        rows.append((form, words // len(questions), ttft, ok, crit_ok, hallu, miss, total))
+        print(f"{form:11s} TTFT {ttft:6.1f}s   all {len(questions)}: {total:6.1f}s   "
+              f"{ok:2d}/{len(questions)}   critical {crit_ok:2d}/{n_crit}   "
+              f"hallucinated {hallu}   said-unknown {miss}")
 
     if len(rows) > 1:
         slow, fast = rows[0][2], rows[-1][2]
