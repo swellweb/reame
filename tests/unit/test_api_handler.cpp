@@ -407,3 +407,106 @@ TEST_CASE("engine errors surface as a 500 error envelope") {
     CHECK(resp.status == 500);
     CHECK(json::parse(resp.body)["error"]["type"] == "server_error");
 }
+
+// ---------------------------------------------------------------------------
+// Escalation: the two-lane relay. The fast mock always answers "foobar", so
+// a trigger of "foobar" simulates a refusal and must relay to the deep lane.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+ApiHandler::Config escalation_cfg() {
+    ApiHandler::Config cfg;
+    cfg.escalation_endpoint = "http://127.0.0.1:9/v1/chat/completions";
+    cfg.escalation_trigger = "foobar";
+    cfg.escalation_model_id = "profonda";
+    return cfg;
+}
+
+std::string chat_body() {
+    return json{{"messages", json::array({{{"role", "user"}, {"content", "ciao"}}})},
+                {"temperature", 0.0},
+                {"max_tokens", 16}}
+        .dump();
+}
+
+}  // namespace
+
+TEST_CASE("il rifiuto della corsia rapida viene rigiocato sulla profonda") {
+    Fixture f(escalation_cfg());
+    std::string endpoint_visto, corpo_visto;
+    f.handler->set_escalation_client(
+        [&](const std::string& endpoint, const std::string& corpo) {
+            endpoint_visto = endpoint;
+            corpo_visto = corpo;
+            return std::optional<std::string>(
+                json{{"choices",
+                      json::array(
+                          {{{"message", {{"role", "assistant"},
+                                         {"content", "risposta profonda"}}}}})}}
+                    .dump());
+        });
+
+    const auto resp =
+        f.handler->handle(request("POST", "/v1/chat/completions", chat_body()));
+
+    REQUIRE(resp.status == 200);
+    const auto j = json::parse(resp.body);
+    CHECK(j["choices"][0]["message"]["content"] == "risposta profonda");
+    CHECK(j["escalated"] == true);
+    CHECK(endpoint_visto == "http://127.0.0.1:9/v1/chat/completions");
+    // The relayed body must target the deep model and never ask to stream.
+    const auto inoltrato = json::parse(corpo_visto);
+    CHECK(inoltrato["model"] == "profonda");
+    CHECK_FALSE(inoltrato.contains("stream"));
+}
+
+TEST_CASE("se la profonda non risponde si tiene la risposta rapida") {
+    Fixture f(escalation_cfg());
+    f.handler->set_escalation_client(
+        [](const std::string&, const std::string&) {
+            return std::optional<std::string>();
+        });
+
+    const auto resp =
+        f.handler->handle(request("POST", "/v1/chat/completions", chat_body()));
+
+    REQUIRE(resp.status == 200);
+    const auto j = json::parse(resp.body);
+    CHECK(j["choices"][0]["message"]["content"] == "foobar");
+    CHECK(j["escalated"] == false);
+}
+
+TEST_CASE("una risposta buona non scomoda mai la profonda") {
+    auto cfg = escalation_cfg();
+    cfg.escalation_trigger = "NON PRESENTE";  // "foobar" non lo contiene
+    Fixture f(cfg);
+    bool chiamata = false;
+    f.handler->set_escalation_client(
+        [&](const std::string&, const std::string&) {
+            chiamata = true;
+            return std::optional<std::string>();
+        });
+
+    const auto resp =
+        f.handler->handle(request("POST", "/v1/chat/completions", chat_body()));
+
+    REQUIRE(resp.status == 200);
+    const auto j = json::parse(resp.body);
+    CHECK(j["choices"][0]["message"]["content"] == "foobar");
+    CHECK(j["escalated"] == false);
+    CHECK_FALSE(chiamata);
+}
+
+TEST_CASE("il warm accetta anche i messages e prefilla il formato chat") {
+    Fixture f;
+    const json body{{"messages", json::array({{{"role", "user"},
+                                               {"content", "il documento"}}})}};
+    const auto resp =
+        f.handler->handle(request("POST", "/v1/warm", body.dump()));
+
+    REQUIRE(resp.status == 200);
+    const auto j = json::parse(resp.body);
+    CHECK(j["warmed"] == true);
+    CHECK(j["tokens"].get<int>() > 0);
+}

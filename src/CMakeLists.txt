@@ -46,6 +46,30 @@ if(ZSTD_FOUND)
     target_compile_definitions(reame_core PUBLIC REAME_HAS_ZSTD=1)
 endif()
 
+# Il motore nucleo (scritto in casa): si aggancia se la sua directory esiste.
+# Sorgenti compilate direttamente in una libreria statica: niente submodule,
+# niente FetchContent — e' codice nostro che vive accanto a questo repo.
+set(REAME_NUCLEO_DIR "${CMAKE_SOURCE_DIR}/../nucleo-dev" CACHE PATH
+    "Directory del motore nucleo (vuota = disabilitato)")
+if(EXISTS "${REAME_NUCLEO_DIR}/include/nucleo/motore.hpp")
+    file(GLOB NUCLEO_SRC "${REAME_NUCLEO_DIR}/src/*.cpp")
+    add_library(nucleo_motore STATIC ${NUCLEO_SRC})
+    target_include_directories(nucleo_motore PUBLIC "${REAME_NUCLEO_DIR}/include")
+    target_compile_features(nucleo_motore PUBLIC cxx_std_20)
+    # I kernel usano vdotq_s32 (dotprod): senza -march della macchina il
+    # gcc di Ubuntu compila per armv8.0 e l'inline fallisce. Il clang di
+    # Apple ha gia' il default giusto, ma native non fa danni nemmeno li'.
+    if(NOT MSVC)
+        target_compile_options(nucleo_motore PRIVATE -march=native)
+    endif()
+    target_link_libraries(reame_core PRIVATE nucleo_motore)
+    target_compile_definitions(reame_core PRIVATE REAME_HAS_NUCLEO=1)
+    message(STATUS "Motore nucleo: ${REAME_NUCLEO_DIR}")
+else()
+    message(STATUS "Motore nucleo: assente (solo llama.cpp)")
+endif()
+target_sources(reame_core PRIVATE core/nucleo_backend.cpp)
+
 if(REAME_HAS_LLAMA)
     target_sources(reame_core PRIVATE core/llama_backend_real.cpp)
     target_compile_definitions(reame_core PUBLIC REAME_HAS_LLAMA=1)
@@ -65,6 +89,7 @@ if(REAME_BUILD_SERVER)
         server/http_parser.cpp
         server/api_handler.cpp
         server/http_server.cpp
+        server/escalation.cpp
         arca/server.cpp
         arca/client.cpp
     )

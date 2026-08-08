@@ -89,6 +89,10 @@ struct HttpServer::Impl {
                   hc.enable_metrics = cfg.enable_metrics;
                   hc.max_concurrent_requests = cfg.max_concurrent_requests;
                   hc.model_id = cfg.model_id;
+                  hc.escalation_endpoint = cfg.escalation_endpoint;
+                  hc.escalation_trigger = cfg.escalation_trigger;
+                  hc.escalation_model_id = cfg.escalation_model_id;
+                  hc.escalation_timeout_ms = cfg.escalation_timeout_ms;
                   return hc;
               }(),
               *engine) {}

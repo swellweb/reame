@@ -67,8 +67,13 @@ struct ApiHandler::Impl {
     std::atomic<int> active_generations{0};
     std::atomic<std::uint64_t> total_requests{0};
     std::atomic<std::uint64_t> errors{0};
+    EscalationClient escalation_client;
 
-    Impl(const Config& c, core::ReameEngine& e) : cfg(c), engine(e) {}
+    Impl(const Config& c, core::ReameEngine& e) : cfg(c), engine(e) {
+        if (!cfg.escalation_endpoint.empty())
+            escalation_client =
+                make_http_escalation_client(cfg.escalation_timeout_ms);
+    }
 
     // ---- Helpers -----------------------------------------------------
 
@@ -222,16 +227,44 @@ struct ApiHandler::Impl {
             }
 
             const auto out = run_generation(prompt, gen, nullptr);
+
+            // The two-lane relay: a refusal from this (fast) lane is
+            // retried verbatim on the deep endpoint. Any failure on that
+            // road keeps the fast answer — escalation can only improve.
+            std::string testo = out.text;
+            bool scalata = false;
+            const bool staffetta = chat && !cfg.escalation_endpoint.empty();
+            if (staffetta && escalation_client &&
+                Escalation::dovrebbe(testo, cfg.escalation_trigger)) {
+                json inoltro = body;
+                inoltro.erase("stream");
+                if (!cfg.escalation_model_id.empty())
+                    inoltro["model"] = cfg.escalation_model_id;
+                if (const auto profonda = escalation_client(
+                        cfg.escalation_endpoint, inoltro.dump())) {
+                    try {
+                        testo = json::parse(*profonda)
+                                    .at("choices").at(0)
+                                    .at("message").at("content")
+                                    .get<std::string>();
+                        scalata = true;
+                    } catch (const json::exception&) {
+                        // deep answer malformed: the fast one stands
+                    }
+                }
+            }
+
             json resp;
             resp["object"] = object;
             resp["model"] = cfg.model_id;
+            if (staffetta) resp["escalated"] = scalata;
             const std::string finish =
                 out.hit_max_tokens ? "length" : "stop";
             if (chat)
                 resp["choices"] = json::array(
                     {{{"index", 0},
                       {"message",
-                       {{"role", "assistant"}, {"content", out.text}}},
+                       {{"role", "assistant"}, {"content", testo}}},
                       {"finish_reason", finish}}});
             else
                 resp["choices"] = json::array({{{"index", 0},
@@ -263,13 +296,26 @@ struct ApiHandler::Impl {
                                "invalid_request_error", "invalid_json"));
             return;
         }
-        if (!body.contains("prompt") || !body["prompt"].is_string()) {
+        // The widget speaks the chat format: warming `messages` reproduces
+        // the exact token prefix a later /v1/chat/completions will carry,
+        // which is what makes the prefix cache hit.
+        std::string prompt;
+        if (body.contains("messages") && body["messages"].is_array() &&
+            !body["messages"].empty()) {
+            std::vector<ChatMessage> messages;
+            messages.reserve(body["messages"].size());
+            for (const auto& m : body["messages"])
+                messages.push_back(
+                    {m.value("role", "user"), m.value("content", "")});
+            prompt = engine.format_chat(messages);
+        } else if (body.contains("prompt") && body["prompt"].is_string()) {
+            prompt = body["prompt"].get<std::string>();
+        } else {
             respond(w, 400,
-                    error_json("'prompt' (string) is required",
+                    error_json("'prompt' (string) or 'messages' is required",
                                "invalid_request_error", "missing_prompt"));
             return;
         }
-        const std::string prompt = body["prompt"].get<std::string>();
         try {
             std::unique_lock<std::mutex> lock(engine_mutex, std::defer_lock);
             if (!engine.parallel_capable()) lock.lock();
@@ -441,6 +487,10 @@ ApiHandler::ApiHandler(const Config& cfg, core::ReameEngine& engine)
     : pimpl_(std::make_unique<Impl>(cfg, engine)) {}
 
 ApiHandler::~ApiHandler() = default;
+
+void ApiHandler::set_escalation_client(EscalationClient client) {
+    pimpl_->escalation_client = std::move(client);
+}
 
 void ApiHandler::handle(const HttpRequest& request, ResponseWriter& writer) {
     pimpl_->route(request, writer);

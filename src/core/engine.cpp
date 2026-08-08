@@ -1,4 +1,5 @@
 #include "reame/core/engine.hpp"
+#include "reame/core/nucleo_backend.hpp"
 
 #include <atomic>
 #include <cstdio>
@@ -158,7 +159,13 @@ ReameEngine::ReameEngine(const Config& config)
           config,
           [&config] {
               validate(config);  // fail fast, before touching llama.cpp
-              return make_llama_backend(to_model_params(config));
+              const auto params = to_model_params(config);
+              // Un modello .nuc e' il formato del motore nucleo: stesso
+              // server, stesse cache, motore diverso sotto.
+              if (params.path.size() > 4 &&
+                  params.path.compare(params.path.size() - 4, 4, ".nuc") == 0)
+                  return make_nucleo_backend(params);
+              return make_llama_backend(params);
           }(),
           [&config]() -> std::unique_ptr<LlamaBackend> {
               if (!wants_draft_backend(config))

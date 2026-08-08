@@ -5,6 +5,7 @@
 #include <string>
 
 #include "reame/core/engine.hpp"
+#include "reame/server/escalation.hpp"
 #include "reame/server/http_types.hpp"
 
 namespace reame::server {
@@ -33,9 +34,21 @@ public:
         bool enable_metrics = true;
         int max_concurrent_requests = 10;  // generation endpoints -> 503
         std::string model_id = "reame";
+
+        // Two-lane relay: when the chat answer matches the trigger regex
+        // (or is blank), the same request is retried on this endpoint and
+        // its answer is returned instead. Empty endpoint = disabled.
+        // Non-streaming chat only: a stream already sent cannot be unsaid.
+        std::string escalation_endpoint;
+        std::string escalation_trigger = "NON PRESENTE";
+        std::string escalation_model_id;   // model field for the deep request
+        int escalation_timeout_ms = 180000;  // deep lane may be cold
     };
 
     ApiHandler(const Config& cfg, core::ReameEngine& engine);
+
+    // Replaces the HTTP client used for escalation; tests inject a fake.
+    void set_escalation_client(EscalationClient client);
     ~ApiHandler();
     ApiHandler(const ApiHandler&) = delete;
     ApiHandler& operator=(const ApiHandler&) = delete;
