@@ -66,3 +66,15 @@ std::uint32_t PrefixCache::prefill(const std::vector<TokenId>& prefix,
 }
 
 }  // namespace reame::cache
+
+namespace reame::cache {
+
+bool PrefixCache::prefetch(const std::vector<TokenId>& prefix) const {
+    if (prefix.empty()) return false;
+    const auto marks = boundaries(prefix.size());
+    for (auto it = marks.rbegin(); it != marks.rend(); ++it)
+        if (manager_.prefetch(key_for(prefix, *it))) return true;
+    return false;
+}
+
+}  // namespace reame::cache

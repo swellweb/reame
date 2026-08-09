@@ -39,7 +39,9 @@ constexpr std::size_t kEnvelopeHeader = 4 + 8 + 4;  // magic + checksum + n_past
 }  // namespace
 
 CacheManager::CacheManager(const Config& cfg)
-    : store_({cfg.directory, cfg.max_bytes}), compress_(cfg.compress) {}
+    : store_({cfg.directory, cfg.max_bytes}),
+      compress_(cfg.compress),
+      staging_budget_(cfg.staging_bytes) {}
 
 std::string CacheManager::make_key(const std::string& model_tag,
                                    const std::vector<TokenId>& tokens) {
@@ -84,7 +86,81 @@ bool CacheManager::store_state(const std::string& key, LlamaBackend& backend,
     return true;
 }
 
+bool CacheManager::prefetch(const std::string& key) {
+    if (staging_budget_ == 0) return false;
+    {
+        std::lock_guard<std::mutex> lock(staging_mutex_);
+        if (staging_.count(key)) return true;   // gia' pronta
+    }
+
+    const auto entry = store_.get(key);
+    if (!entry.has_value()) return false;
+    if (entry->size() < kEnvelopeHeader ||
+        std::memcmp(entry->data(), kMagic, 4) != 0) {
+        store_.remove(key);
+        return false;
+    }
+    const std::uint64_t expected = read_u64(entry->data() + 4);
+    Pronta pronta;
+    pronta.n_past = read_u32(entry->data() + 12);
+    const std::vector<char> packed(entry->begin() + kEnvelopeHeader,
+                                   entry->end());
+    if (KVCacheSerializer::checksum(packed) != expected) {
+        store_.remove(key);
+        return false;
+    }
+    try {
+        pronta.stato = KVCacheSerializer::decompress(packed);
+    } catch (const std::exception&) {
+        store_.remove(key);
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(staging_mutex_);
+    staging_usati_ += pronta.stato.size();
+    staging_[key] = std::move(pronta);
+    staging_lru_.push_back(key);
+    // LRU sul budget: si sfratta il piu' vecchio, mai l'appena entrato.
+    while (staging_usati_ > staging_budget_ && staging_lru_.size() > 1) {
+        const std::string vecchia = staging_lru_.front();
+        staging_lru_.pop_front();
+        auto it = staging_.find(vecchia);
+        if (it != staging_.end()) {
+            staging_usati_ -= it->second.stato.size();
+            staging_.erase(it);
+        }
+    }
+    return true;
+}
+
+bool CacheManager::preleva_staging(const std::string& key, Pronta& fuori) {
+    std::lock_guard<std::mutex> lock(staging_mutex_);
+    auto it = staging_.find(key);
+    if (it == staging_.end()) return false;
+    fuori = std::move(it->second);
+    staging_usati_ -= fuori.stato.size();
+    staging_.erase(it);
+    staging_lru_.remove(key);
+    return true;
+}
+
 bool CacheManager::load_state(const std::string& key, LlamaBackend& backend) {
+    // A prefetched entry already paid disk, checksum and decompression on
+    // the requester's thread: apply it and it is spent.
+    Pronta pronta;
+    if (preleva_staging(key, pronta)) {
+        try {
+            KVCacheSerializer::deserialize(backend, pronta.stato,
+                                           pronta.n_past);
+            ++stats_.hits;
+            return true;
+        } catch (const std::exception&) {
+            store_.remove(key);
+            ++stats_.misses;
+            return false;
+        }
+    }
+
     const auto entry = store_.get(key);
     if (!entry.has_value()) {
         ++stats_.misses;

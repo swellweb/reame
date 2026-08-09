@@ -275,3 +275,88 @@ TEST_CASE("manager: uncompressed mode still round-trips") {
     REQUIRE(mgr.load_state("k", target));
     CHECK(target.set_state_calls[0].first == bytes("raw-mode-state"));
 }
+
+// ---------------------------------------------------------------------------
+// Prefetch (the SGLang HiCache steal): the request thread pays disk + zstd +
+// checksum BEFORE queueing on the engine mutex, staging the decompressed
+// payload in RAM; load_state then consumes the staged copy.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("manager: prefetch stages the entry so load survives file deletion") {
+    TempDir dir;
+    MockBackend source;
+    source.state_data_result = bytes("stato-prescaldato");
+
+    CacheManager mgr({dir.path, 0, true});
+    REQUIRE(mgr.store_state("caldo", source, 7));
+    REQUIRE(mgr.prefetch("caldo"));
+
+    // The proof the staging area is real: wipe the disk. A load that still
+    // succeeds can only have come from RAM.
+    for (const auto& e : fs::directory_iterator(dir.path))
+        fs::remove(e.path());
+
+    MockBackend target;
+    REQUIRE(mgr.load_state("caldo", target));
+    REQUIRE(target.set_state_calls.size() == 1);
+    CHECK(target.set_state_calls[0].first == bytes("stato-prescaldato"));
+    CHECK(target.set_state_calls[0].second == 7);
+}
+
+TEST_CASE("manager: the staged entry is consumed by its load") {
+    TempDir dir;
+    MockBackend source;
+    source.state_data_result = bytes("una-volta-sola");
+
+    CacheManager mgr({dir.path, 0, true});
+    REQUIRE(mgr.store_state("k", source, 3));
+    REQUIRE(mgr.prefetch("k"));
+    for (const auto& e : fs::directory_iterator(dir.path))
+        fs::remove(e.path());
+
+    MockBackend t1, t2;
+    REQUIRE(mgr.load_state("k", t1));       // consumes the staging
+    CHECK_FALSE(mgr.load_state("k", t2));   // disk gone, staging spent
+}
+
+TEST_CASE("manager: prefetch misses unknown keys and corrupt entries") {
+    TempDir dir;
+    CacheManager mgr({dir.path, 0, true});
+    CHECK_FALSE(mgr.prefetch("inesistente"));
+
+    MockBackend source;
+    source.state_data_result = bytes("da-corrompere");
+    REQUIRE(mgr.store_state("rotto", source, 1));
+    fs::path file;
+    for (const auto& e : fs::directory_iterator(dir.path)) file = e.path();
+    {
+        std::fstream f(file, std::ios::in | std::ios::out | std::ios::binary);
+        f.seekp(-1, std::ios::end);
+        const char x = 'X';
+        f.write(&x, 1);
+    }
+    CHECK_FALSE(mgr.prefetch("rotto"));
+}
+
+TEST_CASE("manager: the staging area respects its byte budget") {
+    TempDir dir;
+    MockBackend source;
+    // Two ~1KB states with a budget that holds only one.
+    source.state_data_result = std::vector<char>(1024, 'a');
+
+    CacheManager::Config cfg{dir.path, 0, true};
+    cfg.staging_bytes = 1500;
+    CacheManager mgr(cfg);
+    REQUIRE(mgr.store_state("primo", source, 1));
+    source.state_data_result = std::vector<char>(1024, 'b');
+    REQUIRE(mgr.store_state("secondo", source, 2));
+
+    REQUIRE(mgr.prefetch("primo"));
+    REQUIRE(mgr.prefetch("secondo"));   // evicts "primo" from staging
+    for (const auto& e : fs::directory_iterator(dir.path))
+        fs::remove(e.path());
+
+    MockBackend t1, t2;
+    CHECK_FALSE(mgr.load_state("primo", t1));   // evicted, disk gone
+    CHECK(mgr.load_state("secondo", t2));
+}

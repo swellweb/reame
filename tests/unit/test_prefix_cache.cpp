@@ -175,3 +175,28 @@ TEST_CASE("empty prefix resets and does nothing else") {
     CHECK(backend.decode_append_calls.empty());
     CHECK(mgr.stats().stores == 0);
 }
+
+// ---------------------------------------------------------------------------
+// Prefetch: walk the boundaries from the longest and stage the first hit,
+// so the restore inside prefill() finds the payload already in RAM.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("prefetch stages the longest cached boundary of a shared prefix") {
+    TempDir dir;
+    CacheManager mgr({dir.path, 0, true});
+    PrefixCache cache(mgr, "modello", /*block_tokens=*/4);
+    MockBackend backend;
+    backend.state_data_result = std::vector<char>{'k', 'v'};
+
+    // Prefill of 10 tokens stores boundaries at 4, 8 and 10.
+    cache.prefill(iota_tokens(10), backend);
+
+    // A DIFFERENT prompt sharing the first 9 tokens: its longest cached
+    // boundary is 8. Prefetch must find and stage it.
+    auto altro = iota_tokens(9);
+    altro.push_back(99);
+    CHECK(cache.prefetch(altro));
+
+    // No shared prefix at any boundary: nothing to stage.
+    CHECK_FALSE(cache.prefetch(iota_tokens(10, /*start=*/500)));
+}

@@ -540,6 +540,22 @@ std::string ReameEngine::format_chat(
     return pimpl_->backend->format_chat(messages);
 }
 
+void ReameEngine::prefetch_prefix(const std::string& prompt) noexcept {
+    try {
+        if (pimpl_->prefix_cache == nullptr) return;
+        // Tokenization is read-only on the model (and the nucleo word
+        // cache has its own mutex): safe without the engine lock. The
+        // prefix mirrors generate_stream's exactly — last token excluded.
+        const auto tokens =
+            pimpl_->backend->tokenize(prompt, /*add_special=*/true);
+        if (tokens.size() <= 1) return;
+        pimpl_->prefix_cache->prefetch(
+            std::vector<TokenId>(tokens.begin(), tokens.end() - 1));
+    } catch (...) {
+        // a prefetch must never hurt the request it serves
+    }
+}
+
 int ReameEngine::warm(const std::string& prompt) {
     LlamaBackend& backend = *pimpl_->backend;
     std::vector<TokenId> tokens = backend.tokenize(prompt, /*add_special=*/true);

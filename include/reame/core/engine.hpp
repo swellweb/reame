@@ -159,6 +159,12 @@ public:
     // into). Meant to be driven by a crawler/pipeline as documents arrive.
     int warm(const std::string& prompt);
 
+    // Pays disk + decompression for this prompt's longest cached prefix on
+    // the CALLER's thread, staging it in RAM — call it before queueing for
+    // the engine, so the wait becomes useful work. Never throws, never
+    // touches the KV: a failed prefetch just means a colder prefill.
+    void prefetch_prefix(const std::string& prompt) noexcept;
+
     int context_size() const;
     int vocab_size() const;
     // Token count of `text` under the model's tokenizer (for API usage

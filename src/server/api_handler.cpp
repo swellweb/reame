@@ -190,6 +190,11 @@ struct ApiHandler::Impl {
             prompt = body["prompt"];
         }
 
+        // The SGLang HiCache steal, one level down: this thread would only
+        // sit in the engine queue — let it pay disk + zstd for its own
+        // prefix snapshot first, so the restore inside runs from RAM.
+        engine.prefetch_prefix(prompt);
+
         BusyGuard guard(active_generations, cfg.max_concurrent_requests);
         if (!guard.acquired()) {
             respond(w, 503,

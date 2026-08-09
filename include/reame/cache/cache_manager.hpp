@@ -2,7 +2,10 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <list>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "reame/cache/disk_cache_store.hpp"
@@ -26,6 +29,9 @@ public:
         std::filesystem::path directory;
         std::uint64_t max_bytes = 0;  // 0 = unlimited
         bool compress = true;
+        // RAM budget of the prefetch staging area (decompressed payloads
+        // waiting for their request's turn at the engine). 0 disables it.
+        std::uint64_t staging_bytes = 256ull * 1024 * 1024;
     };
 
     explicit CacheManager(const Config& cfg);
@@ -41,15 +47,34 @@ public:
                      std::uint32_t n_past);
 
     // Restores the snapshot into the backend. False on miss or corruption
-    // (corrupt entries are removed).
+    // (corrupt entries are removed). Consumes the staged copy when the key
+    // was prefetched.
     bool load_state(const std::string& key, LlamaBackend& backend);
+
+    // Pays disk read + checksum + decompression NOW, on the caller's
+    // thread, staging the ready-to-apply payload in RAM — so a request can
+    // do this work while it waits its turn at the engine (the SGLang
+    // HiCache idea, one level down). False on miss/corruption/disabled.
+    bool prefetch(const std::string& key);
 
     const CacheStats& stats() const { return stats_; }
 
 private:
     DiskCacheStore store_;
     bool compress_;
+    std::uint64_t staging_budget_;
     CacheStats stats_;
+
+    struct Pronta {
+        std::vector<char> stato;   // decompressed, checksum already passed
+        std::uint32_t n_past = 0;
+    };
+    std::mutex staging_mutex_;
+    std::unordered_map<std::string, Pronta> staging_;
+    std::list<std::string> staging_lru_;   // front = oldest
+    std::uint64_t staging_usati_ = 0;
+
+    bool preleva_staging(const std::string& key, Pronta& fuori);
 };
 
 }  // namespace reame::cache
