@@ -6,221 +6,91 @@
   <a href="https://swellweb.github.io/reame/"><b>▶ Try the live demo</b></a> — a real Reame instance serving an LLM from a free Oracle ARM box, in your browser.
 </p>
 
-**A lean, fully-tested LLM inference server built on [llama.cpp](https://github.com/ggml-org/llama.cpp) — designed for the hardware you already have: shared vCPUs, free tiers, 2-core ARM boxes.**
+**Reame is an LLM server for ordinary CPUs — the office PC, a €5 VPS, a
+free-tier cloud box. Your data stays on your machine, and the server gets
+faster the longer it works for you.**
 
 > **Your local LLM re-reads the same text a thousand times.
 > Reame reads it once.**
 
-Reame is an inference server built for cheap CPU hardware first — not as a
-fallback for missing GPUs. Its thesis is simple: **on a CPU, never compute the
-same thing twice.**
+No GPU. No per-token bill. One OpenAI-compatible API that any existing
+client can talk to, with two engines underneath: **nucleo**, our own
+engine written from scratch for small models — where it beats llama.cpp —
+and **[llama.cpp](https://github.com/ggml-org/llama.cpp)** for the big ones.
 
-![reame run demo: model catalog, one-line launch, streamed answer](docs/figures/demo.gif)
+![Two engines under one API](docs/figures/due-motori.svg)
 
-## What Reame is for
+---
 
-![The usual way sends every web page to a paid API — 2137 tokens, a bill that
-grows with each user, pages leaving your machine. Stenografo strips the
-navigation furniture down to 405 tokens in 211ms, Reame answers in 6.2s on four
-free ARM cores, and all 13 critical facts still come out
-right.](docs/figures/caso-uso.svg)
+## What can I do with it?
 
-Reame is built for **narrow, repetitive AI workloads over your own data, on
-hardware you already pay for** — the case where the answer lives in the
-context you provide, not in the model's general knowledge. Reame's memory
-makes request #100 cost a fraction of request #1, and the input pipeline
-makes request #1 cheaper too.
+### Put a concierge on your website
 
-**The headline number, measured on a €0 Oracle ARM box this week:** the same
-question about the same customer page, answered by the same model —
-**~6× faster time to first token** (40.5s → 6.2s on the box, 42.6s → 7.3s
-through the public tunnel, so expect 5.9–6.5× depending on where you measure
-from), and the score on a 20-question fact exam went from 19/20 to a perfect
-**20/20 · 13/13 critical facts**. No new model, no
-fine-tuning, no GPU. We just stopped handing the model 2137 tokens of prose
-when 405 tokens of `label: value` say the same thing — and it turns out that
-small models don't just read less that way, they read *better*.
+The flagship use. A visitor writes *"how much would that smooth floor cost
+for my living room?"* — your price list calls it "self-levelling epoxy
+resin for residential interiors", and the visitor neither knows nor cares.
+Reame understands that this is what they are asking, and answers "€35.00
+per m²" in seconds, from a free-tier box.
 
-Don't take our word for it — the page, the questions and the scorer are in
-[`bench/`](bench/), and they run against any OpenAI-compatible server:
+That is what a keyword bot cannot do: bots match rules, and die on the
+first question phrased in the visitor's own words. Underneath Reame there
+are real language models — a small one living on the free box, a big one
+for the hard questions — and no rules to write: feed it your data, and
+questions arrive the way people actually type them.
 
-```bash
-python3 bench/run_fact_exam.py --server http://127.0.0.1:8080 --model reame
-```
+On top of that, one guarantee a bare LLM cannot give: when the answer *is*
+your data (a price, a phone number, an opening time), Reame does not let
+the model generate it — it copies it from your data, verbatim. Inventing a
+price is not unlikely; it is impossible. And when the answer is not in
+your data, it says so instead of guessing.
 
-The failures are published next to that number, including the two ideas we
-built and killed the same day ([BENCHMARKS.md](docs/BENCHMARKS.md)).
+![The concierge cascade](docs/figures/concierge-cascata.svg)
 
-| Use case | Why it fits | Suggested model |
-|---|---|---|
-| Document extraction & classification (RAG, invoices, tickets, scraping) | answers live in the context; prompts share prefixes → the disk cache pays | OLMoE 7B-A1B |
-| Batch pipelines (tag 10k products overnight, meta descriptions, email triage) | repetitive by nature → Palimpsest drafts them; €0 per token, no rate limits | Qwen2.5 1.5B–3B |
-| AI features inside a thin-margin SaaS | a €5 VPS instead of a metered API keeps unit economics alive | Qwen2.5 1.5B–7B |
-| Privacy-bound work (legal, medical, public sector) | data never leaves your server — full sovereignty | OLMoE 7B-A1B |
-| Private code autocomplete (Continue.dev + OpenAI-compatible API) | line-level completion is a narrow task; code never leaves the laptop | Qwen2.5-Coder 1.5B |
-| Judgment on your data (SEO/content audits, review triage) — in batches | needs real reasoning: we measured smaller models inventing findings; the 9B audited a live page correctly in 73s on a laptop | Qwen3.5-9B |
+### And the rest
 
-**What Reame is NOT for**: a
-general-purpose ChatGPT replacement (frontier reasoning and broad knowledge
-need frontier parameter counts), agentic coding assistants, or creative
-long-form writing at scale.
+| You want to… | Reame gives you |
+|---|---|
+| extract data from documents (invoices, tickets, pages) | small model + disk cache: repeated work becomes nearly free |
+| run overnight batch jobs (tag 10k products, triage email) | €0 per token, no rate limits, no data leaving |
+| add AI to a thin-margin SaaS | a €5 VPS instead of a metered API |
+| keep legal/medical/public-sector data private | everything runs and stays on your server |
+| private code autocomplete | an OpenAI-compatible endpoint for Continue.dev |
 
-- 🗂️ **Persistent shared-prefix KV cache** — prompt prefixes are snapshotted to disk
-  (zstd, checksummed, LRU-budgeted) and reused **across different prompts, restarts
-  and processes**. A system prompt is paid for once, by the first user.
-- 📜 **Palimpsest: the server remembers what it generated** — every completed
-  generation feeds an on-disk n-gram archive; future requests draft from it
-  at zero cost. Domain workloads repeat themselves — let them pay off.
-- 🎭 **Il Suggeritore: grammar as a draft source** — constrained decoding uses
-  structure to *forbid* tokens; Reame inverts it and uses structure to
-  *propose* them. List numbering, bullets and format tokens are speculated
-  for free on content nobody has ever generated before.
-- 🔮 **Self-regulating speculative decoding** — a small draft model *or* zero-cost
-  n-gram lookup proposes tokens; the target verifies them in one batched pass.
-  Reame *measures* whether speculation pays on your hardware and switches it
-  off by itself when it doesn't.
-- 🏛️ **The Conclave: consensus as a quality knob** — `--best-of N` generates N
-  candidate answers to the same prompt in one interleaved batch (one prefill,
-  cloned into the others via KV copy; every weight read shared) and elects the
-  winner by majority on the final result. The moment an absolute majority
-  agrees, the stragglers are stopped. Measured: it squeezes roughly
-  one extra correct answer per quiz out of *the model you already run* — it
-  does not make a 1.5B out-reason a 3B (consensus fixes variance, not bias).
-- 👥 **Interleaved multi-user serving** — N concurrent generations advance together
-  inside single multi-sequence batches, sharing every read of the model weights
-  (the cost that dominates memory-bound CPU decoding).
-- 🏰 **ARCA: the shared memory daemon** — `reame arca` starts a Redis-compatible
-  service any language's Redis client reaches with zero SDK: an exact-response
-  cache (a computed answer served in ~0.02 s vs ~1 s of inference) and a
-  fleet-wide generation corpus (one node's output drafts the others'). One
-  config line — `[arca] remote = host:6420` — wires a Reame node to it, and
-  deterministic requests are cached automatically. Proven on a free ARM box
-  with real `redis-cli`. See [docs/ARCA.md](docs/ARCA.md).
-- 🌐 **OpenAI-compatible REST API** — `/v1/completions`, `/v1/chat/completions`,
-  SSE streaming, sessions, bearer auth, metrics. Point any OpenAI client at it.
-- ⚡ **Zero-config CLI** — `reame run qwen2.5-1.5b` downloads the model once,
-  autoconfigures threads/KV/cache for the host and drops into a chat (or
-  `--serve`). No config file until you want one.
-- 🧪 **261 isolated test cases** — every layer is mockable and tested without a
-  model; correctness of the multi-sequence, speculative and KV-clone paths is
-  pinned against real models in integration tests.
+**Not for**: replacing ChatGPT as an all-rounder, agentic coding, creative
+long-form writing. Small models on CPUs shine on narrow work over *your*
+context — that is the niche, and it is a big one.
 
-![Architecture](docs/figures/architecture.svg)
+---
 
-## Measured, not promised
-
-Every number below was produced by the shipped binary on the hardware named —
-including the negative results that shaped the design.
-
-| Highlight | Measured | Machine |
-|---|---|---|
-| Input formatting beats a bigger model | same page, same model: **~6× faster TTFT** (40.5s → 6.2s) and 19/20 → **20/20** on a 20-question fact exam | Oracle free (€0) |
-| MoE beats dense on CPU | OLMoE 7B-A1B **26.7 tok/s** vs dense 7B 3.3 tok/s, equal on easy extraction | Oracle free (€0) |
-| Active params, not total size | Marco-Nano 8B-A0.6B **46.2 tok/s** — 3.2× a 3B dense (14.3 tok/s) while bigger on disk | Oracle free (€0) |
-| Warm cache vs cold | **4.8× end-to-end** | Contabo VPS |
-| Generation archive (Palimpsest) | **2.3×** (22→51 tok/s) | M3 Pro |
-| Judgment without hallucinating | Qwen3.5-9B: **zero invented findings**, full SEO audit in 73s | M3 Pro |
-| Architecture > size | dense 27B **~0.1 tok/s** — 250× slower than a 7B MoE, same box | Oracle free |
-
-The models are not ours. Reame is the server; the weights are third-party
-releases under their own licenses. The demo runs
-[ATH-MaaS/Marco-Nano-Instruct](https://huggingface.co/ATH-MaaS/Marco-Nano-Instruct),
-Apache-2.0 — the name is a coincidence, not an attribution.
-
-**[Full benchmarks, methodology and negative results → docs/BENCHMARKS.md](docs/BENCHMARKS.md)**
-
-Negative results that matter. A 30B-class MoE on the maxed free tier answered the same extraction questions perfectly — and ten times slower than a 7B-A1B that scored the same: when the answer lives in the context, extra parameters buy nothing. Use 30B-class models for hard reasoning in background batches, not for serving. **We also published the correction to our own claim**: that parity holds on an easy needle test, and breaks on a harder one where four similar prices sit in the same block — a 1B-active model reads the right number but cannot tell it apart from its neighbour (we dumped the attention to prove it), while a 3B dense model can. Reformatting the page fixes it without changing the model. Two more ideas we built and killed the same week: 4-bit Q4_0 quantization (+37% prefill, −5 facts) and halving the active experts during prefill (+44% prefill, but the cached KV comes out corrupted). On heavily oversubscribed shared vCPUs a draft
-model runs as slowly as its target, so speculation is counter-productive there —
-Reame detects this and disables it at runtime. And the Conclave does **not**
-close the gap to a model twice the size on hard reasoning: majority voting
-corrects random slips, not systematic misunderstanding — we measured a 1.5B ×5
-land between the 1.5B and a 3B, never above the 3B. Benchmarks that only show
-wins are advertising; these are engineering.
-
-## How it works
-
-**Shared-prefix disk cache.** Prompts are split into fixed token blocks; a chain
-hash keys a KV snapshot at every block boundary. A *different* prompt that shares
-a prefix restores the longest cached boundary and decodes only its own tail.
-Unlike GPU-resident prefix caches, snapshots live on NVMe: they survive restarts.
-
-![Shared-prefix cache](docs/figures/prefix-cache.svg)
-
-**Self-regulating speculation.** Classic Leviathan/Chen acceptance (the rejected
-token is resampled from the residual distribution, so the output distribution is
-exactly the target's), with two CPU-first twists: the draft source can be free
-n-gram lookup mined from the prompt itself — ideal for extraction and rewrite
-workloads — and a feedback controller adapts the draft length and turns
-speculation off when measured acceptance or draft economics go negative.
-
-![Speculative decoding](docs/figures/speculative.svg)
-
-**The Conclave.** `--best-of N` submits N attempts at the same prompt to the
-interleaved scheduler: attempt 0 is the untouched anchor (greedy stays greedy),
-the explorers shift seed and heat up. The scheduler notices the identical
-prompts and **clones the prompt KV** instead of prefilling N times (copy the
-donor's cache, decode only the last prompt token — argmax-verified equal to a
-full prefill). Election is an exact-majority vote on each candidate's final
-number, with a Jaccard text-medoid fallback for prose; the moment a majority
-exists the remaining candidates are stopped mid-generation, and the CLI reports
-`CONCLAVE consensus=k/N` so a caller can escalate only when the conclave split.
-Use it as a quality knob: more accuracy from the model your hardware can
-afford, paid in idle interleaved compute rather than a bigger model's RAM.
-
-## Quick start
+## Get started
 
 ```bash
-reame list                                  # model catalog + what's on disk
-reame run qwen2.5-1.5b                      # download once, auto-config, chat
-reame run qwen2.5-1.5b "Explain mmap"       # one-shot answer
-reame run qwen2.5-1.5b --serve              # OpenAI-compatible API on :8080
-reame run qwen2.5-1.5b "12*13-50?" --best-of 5   # the Conclave
+brew tap swellweb/reame && brew install reame     # or: releases page, or build below
+reame run qwen2.5-1.5b                            # download once, chat
+reame run qwen2.5-1.5b --serve                    # OpenAI API on :8080
 ```
-
-`run` resolves a catalog name (or any local GGUF path), downloads to
-`~/.reame/models` on first use and picks threads, KV quantization and cache
-directory for the host. A config file is only needed when you want control.
-
-A real judgment task — the model audits a live page from its raw HTML (the
-`head -c` only fits it into context; the audit is all the model's):
 
 ```bash
-reame run qwen3.5-9b "Quick SEO audit of this page's HTML — title/meta \
-quality, heading issues, images missing alt text, three concrete fixes:
-$(curl -s https://your-site.com | head -c 16000)"
+curl http://127.0.0.1:8080/v1/chat/completions -d '{
+  "model": "reame",
+  "messages": [{"role": "user", "content": "Ciao!"}]
+}'
 ```
 
-## Install
+That is genuinely all. A config file exists for when you want control —
+see [Configuration](#configuration).
 
-**Homebrew** (macOS / Linux):
-
-```bash
-brew tap swellweb/reame
-brew install reame
-```
-
-**Prebuilt binaries** — Linux x64/arm64 and macOS arm64 on the
-[releases page](https://github.com/swellweb/reame/releases)
-(runtime dependency: libzstd).
-
-**npm** (`npx reame`): planned — binaries are already built per platform.
-
-## Build from source
+<details>
+<summary><b>Build from source</b></summary>
 
 ```bash
 git clone https://github.com/swellweb/reame
 cd reame
 git submodule update --init --depth 1 third_party/llama.cpp
-./build.sh                       # Release build + full test suite
-
-./scripts/download_models.sh     # TinyLlama (test model, ~670 MB)
-
-./build/src/reame --config config/reame.conf --prompt "Hello" --max-tokens 32
-./build/src/reame --config config/reame.conf --serve   # OpenAI-compatible API
+./build.sh          # Release build + full test suite
 ```
 
-Dependencies: CMake ≥ 3.16, a C++17 compiler, and for the server Boost (headers),
-nlohmann-json and zstd:
+Dependencies: CMake ≥ 3.16, C++17, Boost headers, nlohmann-json, zstd.
 
 ```bash
 # Debian/Ubuntu
@@ -228,107 +98,149 @@ sudo apt install build-essential cmake libboost-dev nlohmann-json3-dev libzstd-d
 # macOS
 brew install cmake boost nlohmann-json zstd pkg-config
 ```
+</details>
 
-## Configuration highlights
+---
+
+## How it works, in plain words
+
+Four ideas, each one measured. Everything else is plumbing.
+
+**1 — Convert once, never again.** Most runtimes re-organize the model's
+weights every time the server starts: minutes of work, gigabytes of RAM,
+repeated forever. Reame's own engine does that work **once**, in a
+converter, and saves the result as a `.nuc` file. The server just opens it:
+**99 MB of RAM at startup**, ready in a blink, on the smallest box you have.
+
+**2 — Never read the same thing twice.** Every piece of text the model
+reads is expensive on a CPU. So Reame snapshots what it read onto disk
+(the *prefix cache*) and reuses it — across requests, across restarts,
+across different prompts that share a beginning. An identical request
+answers in half a second.
+
+![Shared-prefix cache](docs/figures/prefix-cache.svg)
+
+**3 — Read ahead, while nobody is waiting.** The moment a visitor opens
+your page, the widget tells Reame (`/v1/warm`) — and the big model reads
+the document *while the visitor is still reading the page*. When the
+question arrives, the expensive part is already done.
+
+![Warm-ahead](docs/figures/warm-ahead.svg)
+
+**4 — Understand with models, answer with data.** The language
+understanding comes from real LLMs — that is what survives questions
+phrased in the visitor's own words, where rule bots break. But the
+*values* in the answers come from your data, copied verbatim, so invention
+is impossible by construction. And the common, unambiguous case takes a
+shortcut past the models entirely (~20 ms); anything uncertain flows to
+the small model, and what that refuses climbs to the big one on its own,
+through the `[escalation]` relay. No path takes more than a few seconds.
+
+---
+
+## The numbers
+
+Every figure measured on the hardware named, by the shipped binary — the
+exact method for each is in **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**,
+negative results included.
+
+| What | Measured | Where |
+|---|---|---|
+| nucleo vs llama.cpp, same 0.5B model | **+31% decode** (35.4 vs 27.2 tok/s) | Oracle free tier |
+| RAM at startup, no repacking | **99 MB** | Oracle free tier |
+| question on a pre-warmed document | 59 s cold → **3.2 s** | Oracle free tier |
+| concierge selector (no model in the loop) | **~20 ms**, invented values: impossible | M3 laptop |
+| identical request, warm cache | **0.5 s** | Oracle free tier |
+| better input format vs bigger model | **~6× faster**, higher score | Oracle free tier |
+
+---
+
+## Configuration
 
 ```ini
 [model]
-path = models/qwen2.5-7b-instruct-q4_k_m.gguf
-context_length = 4096      # total KV budget (shared across users when parallel > 1)
-threads = 4                # fewer is often faster on shared vCPUs — measure!
-
-[memory]
-kv_cache_type = q8_0       # f16 | q8_0 | q4_0 — halve/quarter context RAM
-
-[speculative]
-enabled = true
-mode = lookup              # model (needs draft_model_path) | lookup (no 2nd model)
+path = models/qwen2.5-0.5b.nuc   ; .nuc → nucleo engine, .gguf → llama.cpp
+context_length = 4096
+threads = 4                      ; fewer is often faster on shared vCPUs — measure!
 
 [cache]
 directory = .reame-cache
-max_size_mb = 4096         # LRU byte budget on disk
+max_size_mb = 4096               ; disk budget for the prefix snapshots
 
 [server]
 port = 8080
-api_key =                  # bearer auth when set
-parallel = 1               # >1 = interleaved multi-user serving
+api_key =                        ; bearer auth when set
+parallel = 1                     ; >1 = interleaved multi-user serving
+
+[escalation]                     ; the relay to a bigger model (optional)
+endpoint = http://127.0.0.1:8081/v1/chat/completions
+trigger = NON PRESENTE           ; regex; a blank answer always escalates
+model_id = big-model
 ```
+
+When the small model's answer matches the trigger, the same request is
+replayed on the deep endpoint and *its* answer comes back, flagged
+`"escalated": true`. If the deep road fails, the fast answer stands — the
+relay can only improve a response.
 
 ## API
 
-| Endpoint | Description |
+| Endpoint | What it does |
 |---|---|
-| `POST /v1/completions` | text completion (SSE with `"stream": true`) |
-| `POST /v1/chat/completions` | chat completion |
-| `POST /v1/sessions` · `.../save` · `.../load` · `DELETE .../{id}` | KV session snapshots |
-| `GET /metrics` | request counters + speculative/cache metrics |
-| `POST /v1/warm` | pre-prefill a prompt into the cache (warm-ahead) |
-| `GET /health` | liveness (auth-exempt) |
+| `POST /v1/chat/completions` | chat (SSE streaming with `"stream": true`) |
+| `POST /v1/completions` | plain completion |
+| `POST /v1/warm` | pre-read a `prompt` or `messages` prefix, so the real request starts warm |
+| `POST /v1/sessions` + save/load | snapshot and restore a conversation |
+| `GET /metrics` · `GET /health` | counters · liveness |
 
-## Status & scope
+---
 
-Reame is young and deliberately **opinionated and focused**: CPU-only serving,
-one model per process, correctness pinned by tests at every layer. Not goals:
-GPU offload, training, model management UX. The llama.cpp submodule is pinned to
-a known-good commit and bumped deliberately.
+## The honest part
 
-Documentation in Italian: [docs/README.it.md](docs/README.it.md).
+We publish what failed next to what worked — it is half the value:
 
-## When to use Reame, and when not to
+- **Similarity cannot detect absence.** Embedding scores of "answerable"
+  and "not in the data" questions overlap almost completely (medians 0.895
+  vs 0.879). That is why the concierge *computes* its refusals from
+  evidence instead of predicting them from scores.
+- **Sliding-window attention imposed at inference collapses** (3/20 on our
+  fact exam): Inkling-style 5:1 hybrid attention works because it is
+  trained in, not bolted on. Measured, published, shelved.
+- **Fewer MoE experts pay in prefill (+44%, quality intact), not in decode**
+  (+19% but hallucinations triple; at K=2 the model collapses to 0/20).
+  Read with few, write with all.
+- **Speculation on oversubscribed vCPUs is counter-productive** — Reame
+  measures it and turns itself off.
 
-**Use Ollama** if you want to try many models on a laptop with the least
-friction. It is very good at that, it is what most people should use, and
-Reame does not try to replace it. If your workload is "a few requests a day,
-different prompts every time, on a machine with plenty of headroom", a
-general-purpose runner is the right answer and the rest of this section does
-not apply to you.
+More in [BENCHMARKS](docs/BENCHMARKS.md) and [ROADMAP](docs/ROADMAP.md).
 
-**Reame is for the other case**: one workload, running over and over, on
-hardware where compute is the scarce resource — a free tier, a shared VPS, a
-2-core ARM box. There the arithmetic changes. On a GPU, recomputing a prompt
-prefix is cheap enough to ignore. On four ARM cores it is the single most
-expensive thing you do: a 2137-token page costs 40 seconds of prefill before
-the model writes a word.
+## When to use something else
 
-So Reame is built around one question — *what can we avoid computing?* — and
-every answer is measured on that free box:
-
-| What it avoids | Measured |
-|---|---|
-| Re-reading a prefix you have already read | 54.4s prefill → 3.5s from cold disk, 0.10s warm |
-| Reading a document at all, when it was predictable | pre-digested overnight: 89.7s → 16.7s |
-| Reading text that carries no facts | `label: value` instead of prose: 40.5s → 6.2s, and a *better* score |
-| Re-deriving an answer you already gave | ~0.02s from the ARCA cache vs ~1s of inference |
-| Recomputing structure you can predict | grammar-driven speculation, 2.1× on form-shaped output |
-
-The consequence is a server whose cost per request falls the longer it serves
-the same kind of work — the opposite of a per-token API bill, and the reason
-this is worth running on hardware you already pay for.
-
-**What Reame is not**: it is not faster than llama.cpp on a single cold
-request — it calls the same kernels and adds no per-token magic. It is not a
-GPU server; if you have GPUs, use vLLM or SGLang, they are better at that than
-I will ever be. And it is not a frontier-model replacement: a small model on a
-CPU is for narrow work over context you supply, not for general reasoning or
-broad knowledge.
+**Ollama** is the right tool for trying many models on a laptop with zero
+friction — most people should use it, and Reame does not compete there.
+**vLLM / SGLang** are the right tools if you have GPUs. Reame is for the
+other case: one workload, repeated, on cheap CPU hardware — where its
+cost per request *falls* the longer it serves, which is the opposite of a
+per-token API bill.
 
 ## Support
 
-Reame is free, MIT-licensed and built on nights and free-tier hardware. If it
-saves you API bills or GPU rent, consider [sponsoring](https://github.com/sponsors/swellweb)
-the work — sponsorships fund the roadmap: warm-ahead prefill, a semantic (L2)
-cache layer for the [ARCA daemon](docs/ARCA.md), and first-class MoE serving.
+Free, MIT, built on nights and free-tier hardware. If it saves you API
+bills or GPU rent, consider [sponsoring](https://github.com/sponsors/swellweb).
 
 ## Acknowledgments
 
-Reame stands on the shoulders of [llama.cpp](https://github.com/ggml-org/llama.cpp)
-(all tensor kernels; MIT). The disk-first cache thesis was inspired by
-antirez's DwarfStar4 line of thinking; the speculative pipeline by DeepSeek's
-DSpark work and the Leviathan/Chen speculative sampling theorem; archive
-drafting is a shipped, persistent take on retrieval-based speculation (REST);
-form drafting inverts grammar-constrained decoding. Ideas are cited, numbers
-are ours.
+The big-model lane stands on [llama.cpp](https://github.com/ggml-org/llama.cpp)
+(MIT) — excellent engineering, credited gladly. The nucleo engine is ours,
+verified token-by-token against an independent reference implementation.
+The disk-first cache thesis owes a debt to antirez's DwarfStar4 thinking;
+the speculative pipeline to the Leviathan/Chen theorem. Ideas are cited,
+numbers are ours. The demo model is
+[ATH-MaaS/Marco-Nano-Instruct](https://huggingface.co/ATH-MaaS/Marco-Nano-Instruct)
+(Apache-2.0) — the name is a coincidence, not an attribution.
+
+Documentazione in italiano: [docs/README.it.md](docs/README.it.md).
 
 ## License
 
-[MIT](LICENSE). Built on the shoulders of [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT).
+[MIT](LICENSE).

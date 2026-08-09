@@ -19,7 +19,27 @@ Method: decode speed is measured with a two-run difference (time for N tokens
 minus time for a short run) to isolate generation from model load and prefill,
 or with `llama-cli`'s native `llama_perf` report where noted. Accuracy uses a
 fixed long-context document with eight fact-retrieval ("needle") questions,
-graded on the final answer only.
+graded on the final answer only — plus the harder 20-question exam described
+below (`bench/run_fact_exam.py`, reproducible against any OpenAI-compatible
+server). Speed numbers are 3-run medians unless noted; expect run-to-run
+variance on shared cloud instances and trust ratios within a session more
+than absolutes across sessions.
+
+## The claims, at a glance
+
+Every headline number, its machine, and where its method lives:
+
+| Claim | Number | Machine | Section |
+|---|---|---|---|
+| MoE beats dense on CPU decode | 26.7–46.2 vs 3.3–14.3 tok/s | Oracle free, 4 cores | [Decode speed by model](#decode-speed-by-model) |
+| Input format beats model size | 40.5s → 6.2s TTFT, 19/20 → 20/20 | Oracle free, 4 cores | [Document formatting](#document-formatting-is-a-speed-and-accuracy-lever) |
+| nucleo beats llama.cpp on small models | 35.4 vs 27.2 tok/s (2t), 99 MB startup | Oracle free | [Reame vs llama.cpp](#reame-vs-llamacpp) |
+| Warm-ahead kills the cold prefill | 59.0 s → 3.2 s | Oracle free, 2 pinned cores | [The two-lane numbers](#the-two-lane-numbers-one-4-core-box-cores-pinned-22) |
+| Two lanes don't disturb each other | ±5% under full load | Oracle free, 2+2 pinned | [The two-lane numbers](#the-two-lane-numbers-one-4-core-box-cores-pinned-22) |
+| Experts: read with few, write with all | prefill +44% intact, decode K=2 collapses | Oracle free, 4 threads | [MoE experts](#moe-experts-read-with-few-write-with-all) |
+| Similarity cannot detect absence | medians 0.895 vs 0.879, overlapping | M3, `bench/` | [The concierge finding](#similarity-cannot-detect-absence-the-concierge-finding) |
+| Sliding window at inference collapses | 16/20 → 3/20 | M3, 8 threads | [Negative results](#negative-results-that-shaped-the-design) |
+| Prefix cache, identical request | 0.5 s | Oracle free | [Feature speedups](#feature-speedups) |
 
 ## Decode speed by model
 
@@ -290,15 +310,85 @@ that would drop a single number.
 
 ## Reame vs llama.cpp
 
-Reame is built on llama.cpp and calls its kernels directly, so raw decode
-speed is identical — Reame adds no per-token overhead. What Reame adds is the
-memory layer llama.cpp does not have: the disk KV cache, the generation
-archive, self-regulating speculation, the Conclave. On a single cold request
-Reame ≈ llama.cpp; on a repeated or cached workload Reame pulls ahead by
-exactly the feature-speedup factors above. The point of Reame is not to be a
-faster llama.cpp — it is to be a llama.cpp that remembers.
+This section used to say "raw decode speed is identical — Reame adds no
+per-token overhead". That was true when Reame's only engine *was* llama.cpp.
+It no longer is.
+
+On the **large-model lane** (7B+, MoE) the sentence still holds: Reame calls
+llama.cpp's kernels directly, adds no per-token overhead, and what it adds is
+the memory layer — the disk KV cache, warm-ahead, sessions, the Conclave, the
+two-lane relay. On a single cold request Reame ≈ llama.cpp; on repeated or
+cached work it pulls ahead by the feature factors above.
+
+On the **small-model lane** (0.5B–3B) Reame now runs **nucleo**, our
+from-scratch engine, and the comparison is head-to-head on the same free
+Oracle ARM box (Qwen2.5-0.5B, Q5_0 source weights):
+
+| | nucleo (.nuc) | llama.cpp (.gguf) |
+|---|---|---|
+| decode, 2 threads | **35.4 tok/s** | 27.2 tok/s |
+| decode, 4 threads | **56.3 tok/s** | ~47 tok/s |
+| resident at startup | **99 MB** (mmap, no repack) | model loaded at start |
+
+The speed does not come from better matmuls — five hand-optimisation attempts
+on the Neoverse N1 measured exactly zero, the chip is bandwidth/throughput
+bound. It comes from doing *less*: weights expanded once at convert time into
+integer-friendly layouts (no runtime repack), activations quantised so the
+dot products run in int8 (`vdotq`), a head pruned to the tokens the workload
+can ever emit, fp16 KV. Above the 3B class nucleo currently loses (its Q4_K/
+Q6_K multi-token kernels lag llama.cpp) and Reame routes those models to
+llama.cpp — the boundary is measured, not aesthetic.
+
+### The two-lane numbers (one 4-core box, cores pinned 2+2)
+
+| Measure | Result |
+|---|---|
+| fast lane (nucleo 0.5B) alone, warm document | 3.2–4.1 s per question |
+| fast lane **while** the deep lane prefills 2500 tokens | 3.6–4.3 s (±5%, within noise) |
+| deep lane (Marco-Nano), cold document question | 59.0 s |
+| same, after a `/v1/warm` ping at page load | **3.2 s** |
+
+### MoE experts: read with few, write with all
+
+`--override-kv qwen3moe.expert_used_count` on Marco-Nano, same box, 4 threads,
+3-run medians plus the 20-question fact exam per K:
+
+| K experts | decode | prefill | exam | hallucinated |
+|---|---|---|---|---|
+| 8 (default) | 45.0 tok/s | 132 tok/s | **20/20** | 0 |
+| 6 | 48.3 (+7%) | 156 (+18%) | 19/20 | 1 |
+| 4 | 53.4 (+19%) | 190 (+44%) | 17/20 | 3 |
+| 2 | 58.2 (+29%) | 244 (+85%) | **0/20 — collapse** | 20 |
+
+Prefill scales far better than decode (batched rows amortise the expert
+loads; single-token decode does not), and quality pays immediately in decode.
+The production rule that falls out: **prefill at K=4, decode at K=8** — which
+requires a state handoff between two processes, i.e. exactly the two-lane
+machinery.
+
+### Similarity cannot detect absence (the concierge finding)
+
+On the concierge bench, the max embedding cosine (multilingual-e5-small) of
+questions whose answer IS in the data has median **0.895**; of trap questions
+whose answer is NOT in the data, **0.879**. The distributions overlap almost
+completely: no threshold separates them. Absence has to be *computed* from
+evidence — a value in the question that mismatches the row's value of the
+same kind, an answer type no row holds, an explicitly negated subject, pivot
+terms outside the site's whole vocabulary. With those gates: near-theme traps
+92–100% refused, and invented values impossible by construction because the
+renderer only copies. Full pipeline and 121 tests in `bench/`.
 
 ## Negative results that shaped the design
+
+- **Sliding-window attention imposed at inference collapses fact retrieval.**
+  Inkling-style 5:1 hybrid (5 windowed layers per global one, window 256,
+  sink 4) on a full-attention-trained Qwen2.5-3B: the 20-question exam falls
+  from 16/20 to **3/20** (same grader, M3, 8 threads, `nucleo_concierge`
+  with the window flags). The pattern works when trained in, not bolted on.
+  Honest nugget: it fails *closed* — 13 refusals vs 4 wrong answers; evicted
+  facts produce "not here", not inventions. The ring-buffer cache stays in
+  the engine (−93% KV on windowed layers) for the chat-overflow case, where
+  the evicted middle is old conversation turns, not the facts.
 
 - **A 30B-class MoE does not beat a 7B on extraction.** Same 8/8 accuracy, 10×
   the time. MoE prefill touches nearly every expert, so the active-parameter

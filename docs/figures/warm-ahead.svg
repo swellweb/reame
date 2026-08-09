@@ -1,0 +1,37 @@
+<svg viewBox="0 0 840 280" width="840" height="280" xmlns="http://www.w3.org/2000/svg" style="background:#FBFAF6" role="img" aria-label="Warm-ahead: pay the reading while the visitor reads">
+  <text x="20" y="32" font-size="15" font-weight="750" fill="#20242E">Warm-ahead: the document is read while the visitor is still reading the page</text>
+
+  <!-- WITHOUT -->
+  <text x="20" y="72" font-size="12" font-weight="700" fill="#20242E">without</text>
+  <text x="20" y="88" font-size="11" fill="#5B6068">the model starts reading</text>
+  <text x="20" y="101" font-size="11" fill="#5B6068">when the question arrives</text>
+  <!-- timeline -->
+  <line x1="180" y1="86" x2="820" y2="86" stroke="#D8D4C8" stroke-width="1"/>
+  <circle cx="200" cy="86" r="4" fill="#20242E"/>
+  <text x="200" y="112" font-size="10" fill="#20242E" text-anchor="middle">question</text>
+  <rect x="200" y="72" width="560" height="28" rx="4" fill="#F7EBDA" stroke="#B26A1B"/>
+  <text x="480" y="90" font-size="12" font-weight="700" fill="#B26A1B" text-anchor="middle">the model reads the whole document… 59 s</text>
+  <rect x="760" y="72" width="34" height="28" rx="4" fill="#B26A1B"/>
+  <text x="777" y="90" font-size="10" font-weight="700" fill="#FBFAF6" text-anchor="middle">reply</text>
+
+  <!-- WITH -->
+  <text x="20" y="172" font-size="12" font-weight="700" fill="#20242E">with warm-ahead</text>
+  <text x="20" y="188" font-size="11" fill="#5B6068">the widget pings /v1/warm</text>
+  <text x="20" y="201" font-size="11" fill="#5B6068">as the page loads</text>
+  <line x1="180" y1="186" x2="820" y2="186" stroke="#D8D4C8" stroke-width="1"/>
+  <circle cx="200" cy="186" r="4" fill="#20242E"/>
+  <text x="200" y="212" font-size="10" fill="#20242E" text-anchor="middle">page load</text>
+  <!-- invisible reading -->
+  <rect x="200" y="172" width="300" height="28" rx="4" fill="#EDEBE3" stroke="#5B6068" stroke-dasharray="5 3"/>
+  <text x="350" y="185" font-size="11" fill="#5B6068" text-anchor="middle">the model reads the document</text>
+  <text x="350" y="197" font-size="10" fill="#5B6068" text-anchor="middle">while the visitor reads the page — invisible</text>
+  <circle cx="560" cy="186" r="4" fill="#20242E"/>
+  <text x="560" y="212" font-size="10" fill="#20242E" text-anchor="middle">question</text>
+  <rect x="560" y="172" width="52" height="28" rx="4" fill="#E4EFEA" stroke="#2E6E62"/>
+  <text x="586" y="190" font-size="11" font-weight="700" fill="#2E6E62" text-anchor="middle">3.2 s</text>
+  <rect x="616" y="172" width="34" height="28" rx="4" fill="#2E6E62"/>
+  <text x="633" y="190" font-size="10" font-weight="700" fill="#FBFAF6" text-anchor="middle">reply</text>
+
+  <text x="420" y="252" font-size="12" font-weight="650" fill="#20242E" text-anchor="middle">same box, same model, same question: 59 s → 3.2 s — the waiting just moved to where nobody feels it</text>
+  <text x="420" y="270" font-size="10" fill="#5B6068" text-anchor="middle">measured: Marco-Nano 8B on 2 pinned ARM cores, Oracle free tier</text>
+</svg>
