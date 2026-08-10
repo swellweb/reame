@@ -43,6 +43,12 @@ public:
     std::uint32_t prefill(const std::vector<TokenId>& prefix,
                           LlamaBackend& backend);
 
+    // Pays disk + zstd + checksum for the longest cached boundary NOW, on
+    // the caller's thread, staging it in the manager's RAM — meant to run
+    // while the request waits its turn at the engine, so the restore in
+    // prefill() starts warm. Needs no backend and takes no engine lock.
+    bool prefetch(const std::vector<TokenId>& prefix) const;
+
 private:
     CacheManager& manager_;
     std::string model_tag_;

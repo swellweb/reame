@@ -484,6 +484,14 @@ int main(int argc, char** argv) {
                 cfg.get_bool("server.enable_request_logging", true);
             sc.api_key = cfg.get_string("server.api_key", "");
             sc.model_id = cfg.get_string("server.model_id", "reame");
+            sc.escalation_endpoint =
+                cfg.get_string("escalation.endpoint", "");
+            sc.escalation_trigger =
+                cfg.get_string("escalation.trigger", "NON PRESENTE");
+            sc.escalation_model_id =
+                cfg.get_string("escalation.model_id", "");
+            sc.escalation_timeout_ms = static_cast<int>(
+                cfg.get_int("escalation.timeout_ms", 180000));
 
             reame::server::HttpServer server(sc, engine);
             server.start();

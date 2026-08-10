@@ -35,6 +35,7 @@ if(REAME_BUILD_SERVER)
         unit/test_http_parser.cpp
         unit/test_api_handler.cpp
         unit/test_http_server.cpp
+        unit/test_escalation.cpp
     )
     target_link_libraries(reame_tests PRIVATE reame_server)
 endif()

@@ -1,4 +1,5 @@
 #include "reame/core/engine.hpp"
+#include "reame/core/nucleo_backend.hpp"
 
 #include <atomic>
 #include <cstdio>
@@ -158,7 +159,13 @@ ReameEngine::ReameEngine(const Config& config)
           config,
           [&config] {
               validate(config);  // fail fast, before touching llama.cpp
-              return make_llama_backend(to_model_params(config));
+              const auto params = to_model_params(config);
+              // Un modello .nuc e' il formato del motore nucleo: stesso
+              // server, stesse cache, motore diverso sotto.
+              if (params.path.size() > 4 &&
+                  params.path.compare(params.path.size() - 4, 4, ".nuc") == 0)
+                  return make_nucleo_backend(params);
+              return make_llama_backend(params);
           }(),
           [&config]() -> std::unique_ptr<LlamaBackend> {
               if (!wants_draft_backend(config))
@@ -531,6 +538,22 @@ std::string ReameEngine::format_chat(const std::string& user_message) const {
 std::string ReameEngine::format_chat(
     const std::vector<ChatMessage>& messages) const {
     return pimpl_->backend->format_chat(messages);
+}
+
+void ReameEngine::prefetch_prefix(const std::string& prompt) noexcept {
+    try {
+        if (pimpl_->prefix_cache == nullptr) return;
+        // Tokenization is read-only on the model (and the nucleo word
+        // cache has its own mutex): safe without the engine lock. The
+        // prefix mirrors generate_stream's exactly — last token excluded.
+        const auto tokens =
+            pimpl_->backend->tokenize(prompt, /*add_special=*/true);
+        if (tokens.size() <= 1) return;
+        pimpl_->prefix_cache->prefetch(
+            std::vector<TokenId>(tokens.begin(), tokens.end() - 1));
+    } catch (...) {
+        // a prefetch must never hurt the request it serves
+    }
 }
 
 int ReameEngine::warm(const std::string& prompt) {

@@ -73,3 +73,48 @@ price and 1.7% on the wrong one; with `label: value` it is 2.9% vs 0.4%. It was
 never blind to the number — it could not bind it to the question.
 
 Full write-up and the failed experiments: [../docs/BENCHMARKS.md](../docs/BENCHMARKS.md).
+
+---
+
+# The concierge bench: selection, not generation
+
+A second wave of benches lives here since the concierge work: the answer is
+never *generated*, it is *selected* from a factsheet row and copied byte for
+byte — so the interesting questions become "does the selector pick the right
+row when the caller uses their own words?" and "does it refuse when the
+answer is genuinely absent?".
+
+## The pieces
+
+| File | What it is |
+|---|---|
+| `retrieval.py` | the prefill oracle: BM25 over word blocks (dense embeddings measured 3× worse at this — see docstring) |
+| `selettore.py` | deterministic selector v1: normalisation, aliases, stopwords, answer-type veto, double threshold |
+| `assenza.py` | **computed refusal**: value contrast (ISO 14001 ≠ 9001), orphan answer type, explicit negation, uncovered pivot terms |
+| `fusione.py` | the fused selector: BM25 + question-space cosine over onboarding paraphrases, 3 channels |
+| `grounding.py` | the anti-invention belt: every number/phone/clock in an answer must exist in the sources |
+| `embedder_e5.py` | multilingual-e5-small wrapper (mean pooling, L2-norm) |
+| `paraphrases_factsheet.jsonl` | the onboarding index: ~15 ways a real caller asks for each factsheet row |
+| `questions_paraphrased.jsonl` | the same 20 facts asked in words the page does not use |
+| `questions_absent.jsonl` | 50 trap questions whose answer is NOT in the factsheet (half on confusable nearby themes) |
+| `questions_composite.jsonl` | 10 multi-fact / disambiguation / arithmetic questions |
+
+## Reproduce
+
+```bash
+python3 -m pytest bench/ -q          # 121 isolated tests, no model needed
+python3 bench/misura_selettore.py    # deterministic baseline (no model)
+python3 bench/misura_esperimento.py  # the fused experiment (downloads e5-small)
+```
+
+Calibration discipline: thresholds are fitted only on held-out paraphrases
+plus fresh calibration traps; the evaluation sets are never touched.
+
+## The finding
+
+The ranking works (paraphrased recall@1: 25% lexical-only → 75% fused), but
+**similarity cannot detect absence**: max cosine medians are 0.895 for
+answerable questions vs 0.879 for traps — overlapping, no usable threshold.
+Absence must be *computed* from evidence, not predicted from scores. With the
+computed-refusal gates: near-theme traps 92–100% refused, zero invented
+values possible by construction, ~20 ms per question without any model.

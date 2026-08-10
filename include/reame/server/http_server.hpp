@@ -26,6 +26,12 @@ public:
         bool enable_request_logging = true;
         std::string api_key;  // empty = authentication disabled
         std::string model_id = "reame";
+
+        // Two-lane relay (see ApiHandler::Config): empty endpoint = off.
+        std::string escalation_endpoint;
+        std::string escalation_trigger = "NON PRESENTE";
+        std::string escalation_model_id;
+        int escalation_timeout_ms = 180000;
     };
 
     HttpServer(Config config, std::shared_ptr<core::ReameEngine> engine);
