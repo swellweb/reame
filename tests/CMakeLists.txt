@@ -28,7 +28,16 @@ add_executable(reame_tests
     unit/test_cache.cpp
     unit/test_prefix_cache.cpp
     unit/test_corpus_index.cpp
+    unit/test_nucleo_backend.cpp
 )
+
+# Il test del backend nucleo esercita la catena vera (GGUF giocattolo ->
+# convertitore -> backend): serve la libreria e il percorso dei dati.
+if(EXISTS "${REAME_NUCLEO_DIR}/include/nucleo/motore.hpp")
+    target_compile_definitions(reame_tests PRIVATE REAME_HAS_NUCLEO=1
+        TEST_NUCLEO_DIR="${REAME_NUCLEO_DIR}")
+    target_link_libraries(reame_tests PRIVATE nucleo_motore)
+endif()
 
 if(REAME_BUILD_SERVER)
     target_sources(reame_tests PRIVATE

@@ -64,6 +64,15 @@ if(EXISTS "${REAME_NUCLEO_DIR}/include/nucleo/motore.hpp")
     endif()
     target_link_libraries(reame_core PRIVATE nucleo_motore)
     target_compile_definitions(reame_core PRIVATE REAME_HAS_NUCLEO=1)
+    # Il convertitore GGUF -> .nuc esce dal build insieme al server: e' il
+    # passo "converti una volta" del quickstart ternario, senza chiedere
+    # all'utente di compilare un secondo repo.
+    if(EXISTS "${REAME_NUCLEO_DIR}/strumenti/convertitore.cpp")
+        add_executable(reame-converti
+                       "${REAME_NUCLEO_DIR}/strumenti/convertitore.cpp")
+        target_link_libraries(reame-converti PRIVATE nucleo_motore)
+        target_compile_features(reame-converti PRIVATE cxx_std_20)
+    endif()
     message(STATUS "Motore nucleo: ${REAME_NUCLEO_DIR}")
 else()
     message(STATUS "Motore nucleo: assente (solo llama.cpp)")

@@ -19,15 +19,32 @@ class NucleoBackend final : public LlamaBackend {
 public:
     explicit NucleoBackend(const ModelParams& params)
         : modello_(params.path),
-          tokenizzatore_(modello_.vocabolario, modello_.fusioni),
+          // I tipi dei token (formato v7) fanno riconoscere interi i token
+          // di controllo che NON rispettano il pattern <|...|> — <think>
+          // in testa. Senza, la codifica li spezza in frammenti mai visti
+          // in addestramento e il modello risponde frammenti in ciclo:
+          // successo davvero, con Bonsai. Sui .nuc vecchi il campo e'
+          // vuoto e non cambia niente.
+          tokenizzatore_(modello_.vocabolario, modello_.fusioni,
+                         modello_.tipi_token),
           motore_(modello_, static_cast<std::uint32_t>(params.context_length),
                   params.threads) {
         if (!modello_.vocab_uscita.empty())
             throw ModelError(
                 "il server richiede un .nuc a testa piena: quello potato "
                 "emette solo il vocabolario del suo corpus");
-        fine_turno_ = tokenizzatore_.codifica("<|im_end|>")[0];
-        fine_testo_ = tokenizzatore_.codifica("<|endoftext|>")[0];
+        fine_turno_ = token_unico("<|im_end|>");
+        fine_testo_ = token_unico("<|endoftext|>");
+        if (fine_turno_ < 0 && fine_testo_ < 0)
+            throw ModelError(
+                "il vocabolario non ha ne' <|im_end|> ne' <|endoftext|>: "
+                "senza un token di fine la generazione non sa fermarsi");
+        // La famiglia thinking (Bonsai/Qwen3.6): se <think> e' un token di
+        // controllo, il template DEVE aprire il blocco di ragionamento —
+        // il modello e' addestrato cosi'. Il server lo chiude subito
+        // (thinking spento): a pochi token al secondo, i token di pensiero
+        // sono un lusso che una risposta HTTP non puo' pagare.
+        pensa_ = token_unico("<think>") >= 0 && token_unico("</think>") >= 0;
     }
 
     std::vector<TokenId> tokenize(const std::string& text,
@@ -58,14 +75,27 @@ public:
 
     std::vector<std::vector<float>> decode_batch(
         const std::vector<TokenId>& tokens) override {
-        // Corretta ma lenta: un forward per posizione. La verifica
-        // speculativa la usa; su questo backend la speculazione non
-        // conviene finche' il motore non restituisce i logit di ogni
-        // posizione in un passaggio solo.
+        // La verifica speculativa: i logit di OGNI posizione, coi pesi
+        // letti una volta per lotto (avanza_lotto, al massimo 8 posizioni
+        // per volta). E' cio' che rende la speculazione conveniente anche
+        // su questo backend.
         std::vector<std::vector<float>> tutti;
         tutti.reserve(tokens.size());
-        for (const TokenId t : tokens)
-            tutti.push_back(decode_append({t}));
+        std::vector<float> logit_tutti;
+        std::size_t da = 0;
+        while (da < tokens.size()) {
+            const std::size_t quanti =
+                std::min<std::size_t>(8, tokens.size() - da);
+            const std::vector<int> lotto(tokens.begin() + da,
+                                         tokens.begin() + da + quanti);
+            motore_.continua_lotto(lotto, logit_tutti);
+            const std::size_t n_logit = logit_tutti.size() / quanti;
+            for (std::size_t t = 0; t < quanti; ++t)
+                tutti.emplace_back(
+                    logit_tutti.begin() + t * n_logit,
+                    logit_tutti.begin() + (t + 1) * n_logit);
+            da += quanti;
+        }
         return tutti;
     }
 
@@ -96,6 +126,11 @@ public:
             testo += "<|im_start|>" + m.role + "\n" + m.content +
                      "<|im_end|>\n";
         testo += "<|im_start|>assistant\n";
+        // Il blocco di ragionamento chiuso subito: la forma "thinking
+        // spento" del template ufficiale (pinnata dal tokenizer.chat_template
+        // del GGUF di Bonsai). Senza questo prefisso il modello parte
+        // orfano e la generazione degenera.
+        if (pensa_) testo += "<think>\n\n</think>\n\n";
         return testo;
     }
 
@@ -124,7 +159,9 @@ public:
         return motore_.configurazione().n_ctx;
     }
 
-    TokenId eos_token() const override { return fine_testo_; }
+    TokenId eos_token() const override {
+        return fine_testo_ >= 0 ? fine_testo_ : fine_turno_;
+    }
 
     bool is_eog(TokenId token) const override {
         return token == fine_turno_ || token == fine_testo_;
@@ -133,11 +170,20 @@ public:
     bool supports_rollback() const override { return true; }
 
 private:
+    // L'id del marcatore se il vocabolario lo codifica come UN token; -1
+    // altrimenti. La vecchia codifica(...)[0] prendeva il primo frammento
+    // BPE e lo stop diventava un token qualunque, in silenzio.
+    int token_unico(const std::string& testo) const {
+        const auto ids = tokenizzatore_.codifica(testo);
+        return ids.size() == 1 ? ids[0] : -1;
+    }
+
     nucleo::Modello modello_;
     nucleo::Tokenizzatore tokenizzatore_;
     nucleo::Motore motore_;
-    TokenId fine_turno_ = 0;
-    TokenId fine_testo_ = 0;
+    TokenId fine_turno_ = -1;
+    TokenId fine_testo_ = -1;
+    bool pensa_ = false;
 };
 
 }  // namespace
