@@ -45,7 +45,7 @@ master running TQ2_0 (2.06 bpw).
 | **Oracle A1, 2 cores** | **Bonsai-8B** | **2.8** | **fork 2.46** | **4.3** | **2.77** |
 | Oracle A1, 4 cores | Bonsai-1.7B | 20.9 | mainline 31.6 | 32 | 66 |
 | Oracle A1, 2 cores | Bonsai-1.7B | 11.9 | mainline 16.75 | 19.2 | 33.3 |
-| Apple M3 Pro, 4 threads | Bonsai-1.7B | ≥45 | mainline 78.4 | ~35 | 176 |
+| Apple M3 Pro, 5 threads | Bonsai-1.7B | 85.7 | mainline 114.1 | 107 | 219 |
 
 The bold rows are the claim: on Bonsai-8B, against the vendor's own
 runtime, nucleo is **faster at both core counts on both phases** —
@@ -61,9 +61,11 @@ prompt path). Two things worth knowing when reading those rows:
   6-bit Q6_K (that is also why its 1.7B file is 590 MB against nucleo's
   454). nucleo serves the ternary weights end-to-end at 2.125 bpw, head
   included — and still scores 19/20 below.
-- The M3 nucleo figure is a lower bound (measured at dawn with one core
-  stolen by a hung rival process; daytime laptop runs were too noisy to
-  publish). A clean re-measure is scheduled.
+- The M3 row was measured on an idle laptop (user idle time logged
+  before and after the window to prove it) after a day of engine work —
+  QoS-pinned worker threads, vectorized attention, a spin barrier —
+  that nearly doubled the morning's figure. The remaining 25% is the
+  target of an smmla (i8mm) kernel already merged for batch work.
 
 ## Accuracy, on the deployed server
 
