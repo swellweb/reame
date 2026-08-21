@@ -26,13 +26,23 @@
   // Niente esempio few-shot qui: aiuta i modelli base in completamento, ma
   // AVVELENA gli instruct in chat (misurato: il modello grande rispondeva
   // sull'argomento dell'esempio). Questo formato e' quello del 20/20.
+  // Istruzione da concierge, non da esame: quella severa ("solo dato
+  // richiesto... NON PRESENTE") rompe le domande-lista sul modello instruct.
+  // Gli ultimi scambi viaggiano nel prompt: "mi dai il link per aprirlo?"
+  // ha senso solo se il modello ricorda di cosa si parlava.
+  var storia = [];
   function messaggi(domanda) {
+    var scambi = storia.slice(-2).map(function (s) {
+      return "Domanda: " + s.d + "\nRisposta: " + s.r + "\n";
+    }).join("");
     return [{ role: "user", content:
       "Documento:\n" + factsheet +
-      "\n\nRispondi alla domanda usando SOLO il documento, con il solo dato " +
-      "richiesto, in una sola riga, senza spiegazioni. Se il documento non " +
-      "contiene l'informazione rispondi esattamente: NON PRESENTE.\n" +
-      "Domanda: " + domanda }];
+      "\n\nSei il concierge del sito. Rispondi usando SOLO il documento " +
+      "qui sopra, in modo breve e cortese, in testo semplice senza " +
+      "asterischi o markdown. Non inventare MAI link, numeri di telefono o " +
+      "indirizzi: usa solo quelli scritti nel documento. Se l'informazione " +
+      "non c'è, dillo chiaramente e suggerisci l'assistenza WhatsApp.\n\n" +
+      scambi + "Domanda: " + domanda }];
   }
 
   // Warm-ahead: stesso identico prefisso che manderemo con la domanda,
@@ -50,12 +60,32 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "reame", temperature: 0, max_tokens: 96,
+        model: "reame", temperature: 0, max_tokens: 200,
         messages: messaggi(domanda),
       }),
     }).then(function (r) { return r.json(); })
       .then(function (j) {
         var testo = (j.choices && j.choices[0].message.content || "").trim();
+        testo = testo.replace(/\*\*|__|^[-*] /gm, "");
+        // La cintura anti-invenzione in miniatura: un link o un numero di
+        // telefono che non sta nel factsheet non raggiunge il visitatore.
+        var inventato = false;
+        (testo.match(/https?:\/\/[^\s)"]+/g) || []).forEach(function (u) {
+          if (factsheet.indexOf(u.replace(/[).,]$/, "")) === -1) inventato = true;
+        });
+        (testo.match(/[\w.+-]+@[\w-]+\.[\w.]+|\[email[^\]]*\]/gi) || []).forEach(function (e) {
+          if (factsheet.toLowerCase().indexOf(e.toLowerCase()) === -1) inventato = true;
+        });
+        (testo.match(/\+?\d[\d\s]{8,}\d/g) || []).forEach(function (n) {
+          if (factsheet.replace(/\s/g, "").indexOf(n.replace(/\s/g, "")) === -1)
+            inventato = true;
+        });
+        if (inventato)
+          testo = "Per questo ti conviene l'assistenza WhatsApp: " +
+                  "+39 327 867 3013 — meglio un contatto vero di un mio errore.";
+        if (!testo)
+          testo = "Non sono riuscito a rispondere ora — riprova o scrivi " +
+                  "all'assistenza WhatsApp.";
         if (/NON PRESENTE/i.test(testo))
           testo = "Su questo non ho l'informazione qui — meglio chiedere " +
                   "direttamente ai contatti del sito.";
@@ -147,7 +177,10 @@
       campo.value = "";
       riga("rc-io", domanda);
       var attesa = riga("rc-lui", "…");
-      chiedi(domanda, function (testo) { attesa.textContent = testo; });
+      chiedi(domanda, function (testo) {
+        attesa.textContent = testo;
+        storia.push({ d: domanda, r: testo });
+      });
     });
   }
 
