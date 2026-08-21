@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reame — live CPU LLM demo</title>
+  <title>Reame — ternary LLMs on ordinary CPUs</title>
   <style>
     :root {
       --bg: #ffffff; --fg: #1a1a2e; --muted: #6b7280;
@@ -62,12 +62,17 @@
 </head>
 <body>
   <main>
-    <h1>🏰 Reame — live CPU LLM demo</h1>
+    <h1>🏰 Reame — ternary LLMs on ordinary CPUs</h1>
     <p class="sub">
-      A CPU-first inference server on llama.cpp, serving Marco-Nano (8B MoE,
-      0.6B active) from a free Oracle ARM box. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Source & benchmarks →</a>
-      <br>Only 0.6B parameters are read per token, so it decodes at ~46 tok/s on
-      4 ARM cores — answers land in seconds. A demo, not a benchmark.
+      Reame is a CPU-first LLM server built around <b>ternary models</b> —
+      weights that are only −1, 0 or +1. Its engine, written from scratch,
+      serves PrismML's Bonsai-8B (2.2&nbsp;GB) <b>faster than the model
+      vendor's own runtime</b>: decode +7-14% and prompt reading +40-55%,
+      measured at 2 and 4 ARM cores on the free Oracle box, 19/20 on a fact
+      exam. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Numbers, method, and the benchmarks we lose →</a>
+      <br><br>The chat below is that same server on the same free box,
+      running Marco-Nano (8B MoE, 0.6B active) — only 0.6B parameters are
+      read per token, so it answers in seconds. A demo, not a benchmark.
       <br><br><b>Paste a text and ask about it.</b> That is what this is for, and
       on a 20-question fact exam over a pasted page it scores 20/20 — as fast as
       it is because we rewrite the page before the model reads it
@@ -89,7 +94,8 @@
 
     <footer>
       Runs on the hardware you already pay for: an Oracle Always-Free ARM box,
-      exposed over a free tunnel. On a CPU, never compute the same thing twice.
+      exposed over a free tunnel. On a CPU, never compute the same thing twice —
+      and when the weights are ternary, an 8B fits where the free tier lives.
     </footer>
   </main>
 
