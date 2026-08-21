@@ -70,16 +70,22 @@
       vendor's own runtime</b>: decode +7-14% and prompt reading +40-55%,
       measured at 2 and 4 ARM cores on the free Oracle box, 19/20 on a fact
       exam. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Numbers, method, and the benchmarks we lose →</a>
-      <br><br><b>The chat below is exactly that: Bonsai-8B ternary, served by
-      that engine, on that free box.</b> Every token you see costs a real pass
-      over eight billion ternary weights on four ARM cores, at about five
-      tokens a second — expect half a minute for a long answer. The reply is
-      direct-answer mode (no hidden reasoning): that is what keeps it usable
-      on free hardware.
-      <br><br><b>Paste a text and ask about it</b>, or ask it something
-      factual. It knows what an 8B knows; on borderline trivia it can still
-      pick the wrong fact — answers that come purely from the model's memory
-      are flagged below the reply.
+      <br><br>The chat interface below is running the exact setup described
+      above: <b>Bonsai-8B ternary, served by our nucleo engine, hosted on a
+      free-tier Oracle ARM instance.</b> Every token generated requires a
+      real inference pass over eight billion ternary weights across four ARM
+      cores. At roughly five tokens per second, you can expect a wait of
+      about half a minute for longer responses.
+      <br><br>To keep latency manageable on free hardware, the model
+      operates in direct-answer mode&mdash;meaning there are no hidden
+      reasoning steps consuming extra time. You can paste your own text and
+      ask questions about it, or try querying it on general facts. It
+      possesses the knowledge base of an 8-billion parameter model, which is
+      substantial but not infallible; on borderline trivia, it might
+      occasionally select the wrong fact. For full transparency, any
+      response derived purely from the model's internal memory&mdash;rather
+      than from context you explicitly provided&mdash;is explicitly flagged
+      below the reply.
     </p>
     <div id="status">checking backend…</div>
 
