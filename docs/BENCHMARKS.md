@@ -26,12 +26,19 @@ nucleo measured with its chat banco: a 182-token prompt and a long greedy
 generation; prefill tok/s = 182 / reported prefill seconds; decode tok/s
 as reported over the full generation.
 
-One method caveat, against ourselves: `llama-bench tg64` decodes at
-near-zero context (attention is almost free there), while the chat banco
-decodes at a growing 200-600-token context, paying the full attention
-bill. At matched short context nucleo measures *higher* than the table
-below (1.7B: 20.9 → higher; 8B 4-core: 5.6). The table keeps the harder,
-real-context numbers for nucleo.
+Two method caveats, both against ourselves. First: `llama-bench tg64`
+decodes at near-zero context (attention is almost free there), while
+the chat banco decodes at a growing 200-600-token context, paying the
+full attention bill. At matched short context nucleo measures *higher*
+than the table below (1.7B: 20.9 → higher; 8B 4-core: 5.6). Second:
+`llama-bench pp256` processes the prompt as one large batch — its best
+case — while nucleo's prefill works through the prompt in blocks of 8
+tokens. The table keeps the harder numbers for nucleo on both counts.
+Run-to-run variance on the dedicated ARM box, with the window
+discipline above, stayed around 1% (prefill: 43.0-43.2 s across 5+
+separate windows in one day); on a laptop it does not — which is why
+the M3 row below was only taken from an idle machine, with the
+user-idle counter logged before and after the window as proof.
 
 ## The table
 
