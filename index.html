@@ -70,17 +70,16 @@
       vendor's own runtime</b>: decode +7-14% and prompt reading +40-55%,
       measured at 2 and 4 ARM cores on the free Oracle box, 19/20 on a fact
       exam. <a href="https://github.com/swellweb/reame" target="_blank" rel="noopener">Numbers, method, and the benchmarks we lose →</a>
-      <br><br>The chat below is that same server on the same free box,
-      running Marco-Nano (8B MoE, 0.6B active) — only 0.6B parameters are
-      read per token, so it answers in seconds. A demo, not a benchmark.
-      <br><br><b>Paste a text and ask about it.</b> That is what this is for, and
-      on a 20-question fact exam over a pasted page it scores 20/20 — as fast as
-      it is because we rewrite the page before the model reads it
-      (<a href="https://github.com/swellweb/reame/tree/main/bench">reproduce it</a>).
-      <br><b>Ask it what it knows instead, and it will get things wrong.</b> A
-      0.6B-active model has thin world knowledge: ask for a carbonara recipe and
-      it may put cream in it. Answers that come from the model's own memory are
-      flagged as such below the reply — treat them as a party trick, not an answer.
+      <br><br><b>The chat below is exactly that: Bonsai-8B ternary, served by
+      that engine, on that free box.</b> Every token you see costs a real pass
+      over eight billion ternary weights on four ARM cores, at about five
+      tokens a second — expect half a minute for a long answer. The reply is
+      direct-answer mode (no hidden reasoning): that is what keeps it usable
+      on free hardware.
+      <br><br><b>Paste a text and ask about it</b>, or ask it something
+      factual. It knows what an 8B knows; on borderline trivia it can still
+      pick the wrong fact — answers that come purely from the model's memory
+      are flagged below the reply.
     </p>
     <div id="status">checking backend…</div>
 
@@ -191,11 +190,11 @@
 
       const botEl = addMsg("bot", "generating… 0s");
       const started = performance.now();
-      // Live elapsed ticker so the wait isn't a silent "…" (a 9B on CPU is slow).
+      // Live elapsed ticker so the wait isn't a silent "…" (~5 tok/s is honest work).
       const ticker = setInterval(function () {
         botEl.textContent = "generating… " + Math.round((performance.now() - started) / 1000) + "s";
       }, 1000);
-      // Abort if the box takes too long (9B on a free CPU under load).
+      // Abort if the box takes too long (an 8B ternary on 4 free cores).
       const ctrl = new AbortController();
       const timer = setTimeout(function () { ctrl.abort(); }, 180000);
       try {
@@ -205,7 +204,7 @@
           body: JSON.stringify({
             model: "reame",
             messages: history,
-            max_tokens: 220,
+            max_tokens: 160,
             temperature: 0.7,
           }),
           signal: ctrl.signal,
@@ -230,9 +229,9 @@
           const warn = document.createElement("div");
           warn.className = "meta";
           warn.style.color = "#e0a458";
-          warn.textContent = "⚠ answered from the model's own memory — a 0.6B-active model "
-            + "has thin world knowledge and will get details wrong. Paste the source text "
-            + "and ask about it: that is the job this is built for.";
+          warn.textContent = "⚠ answered from the model's own memory, in direct-answer "
+            + "mode — on borderline trivia it can pick the wrong fact. Paste the source "
+            + "text and ask about it: grounded answers are what this is built for.";
           botEl.appendChild(warn);
         }
         history.push({ role: "assistant", content: answer });
