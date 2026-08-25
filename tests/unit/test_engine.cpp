@@ -128,6 +128,43 @@ TEST_CASE("generate: prefill once, append per token, stop at EOS") {
     CHECK(mock->decode_append_calls[1] == std::vector<TokenId>{0});
 }
 
+TEST_CASE("generate: la richiesta che estende la conversazione decodifica solo la coda") {
+    // La chat rimanda la storia INTERA a ogni turno. Il motore ha ancora
+    // in memoria lo stato del turno precedente: se la nuova richiesta lo
+    // estende (stessi token in testa), si decodifica solo la parte nuova.
+    // Sul Bonsai-8B della demo e' la differenza fra ~80 e ~20 secondi.
+    auto [engine, mock] = make_engine();
+    script_foobar(mock);
+    engine.generate("hi", greedy());
+    // KV dopo il turno 1: {1,2} dal prefill + {3,0} generati (EOS escluso).
+    REQUIRE(mock->decode_calls.size() == 1);
+    REQUIRE(mock->n_past() == 4);
+
+    // Turno 2: storia estesa {1,2,3,0} + nuova domanda {7,8}.
+    mock->tokenize_result = {1, 2, 3, 0, 7, 8};
+    mock->decode_queue = {peak(5, 4)};   // subito EOS: solo il prefill conta
+    engine.generate("hi foobar again", greedy());
+    // Nessun secondo prefill pieno: il backend non riparte...
+    CHECK(mock->decode_calls.size() == 1);
+    CHECK(mock->reset_calls == 0);
+    // ...e l'unico lavoro nuovo e' la coda della conversazione.
+    REQUIRE_FALSE(mock->decode_append_calls.empty());
+    CHECK(mock->decode_append_calls.back() == std::vector<TokenId>{7, 8});
+}
+
+TEST_CASE("generate: una conversazione DIVERSA non eredita lo stato caldo") {
+    // Prefisso diverso -> niente scorciatoia: prefill pieno come sempre.
+    auto [engine, mock] = make_engine();
+    script_foobar(mock);
+    engine.generate("hi", greedy());
+
+    mock->tokenize_result = {9, 9, 9};
+    mock->decode_queue = {peak(5, 4)};
+    engine.generate("altro", greedy());
+    REQUIRE(mock->decode_calls.size() == 2);
+    CHECK(mock->decode_calls.back() == std::vector<TokenId>{9, 9, 9});
+}
+
 TEST_CASE("generate honours max_tokens") {
     auto [engine, mock] = make_engine();
     mock->vocab_size_value = 5;

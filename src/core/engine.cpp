@@ -427,12 +427,28 @@ void ReameEngine::generate_stream_impl(
         return;
     }
 
+    // Hot continuation: chat clients resend the WHOLE history every turn,
+    // and the engine still holds the previous turn's state in memory. If
+    // the new request extends it (same tokens at the head, and the
+    // backend's position counter still matches — the guard that keeps
+    // /v1/warm and sessions from tripping this), only the new tail needs
+    // decoding. On the 8B demo this turns an 80-second turn into a
+    // 20-second one, and it gets better the longer the conversation.
+    const bool estende =
+        !pimpl_->context_tokens.empty() &&
+        tokens.size() > pimpl_->context_tokens.size() &&
+        backend.n_past() == pimpl_->context_tokens.size() &&
+        std::equal(pimpl_->context_tokens.begin(),
+                   pimpl_->context_tokens.end(), tokens.begin());
+
     if (pimpl_->decoder != nullptr) {
         // Compose with the shared-prefix cache (bug #16): load the warmed
         // prefix first, then tell the decoder how much KV it inherits —
         // otherwise its reset would silently discard every /v1/warm.
         std::size_t kv_ready = 0;
-        if (pimpl_->prefix_cache != nullptr && tokens.size() > 1) {
+        if (estende) {
+            kv_ready = pimpl_->context_tokens.size();
+        } else if (pimpl_->prefix_cache != nullptr && tokens.size() > 1) {
             const std::vector<TokenId> prefix(tokens.begin(),
                                               tokens.end() - 1);
             pimpl_->prefix_cache->prefill(prefix, backend);
@@ -453,7 +469,12 @@ void ReameEngine::generate_stream_impl(
 
     // Prefill; from here `tokens` mirrors the KV cache content.
     std::vector<float> logits;
-    if (pimpl_->prefix_cache != nullptr) {
+    if (estende) {
+        logits = backend.decode_append(
+            {tokens.begin() +
+                 static_cast<std::ptrdiff_t>(pimpl_->context_tokens.size()),
+             tokens.end()});
+    } else if (pimpl_->prefix_cache != nullptr) {
         // Shared-prefix prefill: the cache covers the prompt minus its
         // last token (block-wise snapshots, longest cached prefix reused —
         // across different prompts too); the last token is always decoded
