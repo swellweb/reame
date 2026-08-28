@@ -15,7 +15,7 @@ These aren't just marketing claims; they are measured. Running Bonsai-8B (PrismM
 | **2 ARM cores** (Oracle Always Free) | **2.8 vs 2.46 tok/s (+14%)** | **4.3 vs 2.77 tok/s (+55%)** |
 | **4 ARM cores** | **5.7 vs 4.84 tok/s (+18%)** | **7.9 vs 5.5 tok/s (+44%)** |
 
-These figures are the median of three back-to-back runs. Accuracy sits at 19/20 on a twenty-question fact exam run against the deployed server (the missed question is a borderline knowledge fact that the same weights answer correctly when allowed to reason first). The full methodology, raw numbers, and even the benchmarks we *lose* are documented in **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**. A benchmark page that only shows wins is just advertising.
+Figures are replicated across back-to-back runs — the exact protocol per row is in the benchmarks page. Accuracy sits at 19/20 on a twenty-question fact exam run against the deployed server (the missed question is a borderline knowledge fact that the same weights answer correctly when allowed to reason first). The full methodology, raw numbers, and even the benchmarks we *lose* are documented in **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**. A benchmark page that only shows wins is just advertising.
 
 No GPU required. No per-token billing. Just a single OpenAI-compatible API that any existing client can connect to. Under the hood, it relies on two engines: **nucleo**, our custom engine built from scratch (which handles the ternary numbers above), and **[llama.cpp](https://github.com/ggml-org/llama.cpp)** for everything else.
 
