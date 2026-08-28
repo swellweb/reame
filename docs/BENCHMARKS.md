@@ -48,16 +48,16 @@ master running TQ2_0 (2.06 bpw).
 
 | Box | Model | nucleo decode | rival decode | nucleo prefill | rival pp256 |
 |---|---|---|---|---|---|
-| **Oracle A1, 4 cores** | **Bonsai-8B** | **5.3** | **fork 4.84** | **7.7** | **5.5** |
+| **Oracle A1, 4 cores** | **Bonsai-8B** | **5.7** | **fork 4.84** | **7.9** | **5.5** |
 | **Oracle A1, 2 cores** | **Bonsai-8B** | **2.8** | **fork 2.46** | **4.3** | **2.77** |
-| Oracle A1, 4 cores | Bonsai-1.7B | 20.9 | mainline 31.6 | 32 | 66 |
-| Oracle A1, 2 cores | Bonsai-1.7B | 11.9 | mainline 16.75 | 19.2 | 33.3 |
+| Oracle A1, 4 cores | Bonsai-1.7B | 22.1 | mainline 31.6 | 33 | 66 |
+| Oracle A1, 2 cores | Bonsai-1.7B | 12.7 | mainline 16.75 | 19.4 | 33.3 |
 | Apple M3 Pro, 5 threads | Bonsai-1.7B | 85.7 | mainline 114.1 | 107 | 219 |
 
 The bold rows are the claim: on Bonsai-8B, against the vendor's own
 runtime, nucleo is **faster at both core counts on both phases** —
-decode +10% at 4 cores (5.3/5.3/5.3 across three back-to-back runs) and
-+14% at 2 cores; prompt processing 1.4-1.5× at both.
+decode +18% at 4 cores and +14% at 2; prompt processing 1.4-1.5× at
+both.
 
 The rows we lose are printed too. Mainline's TQ2_0 path is faster on the
 1.7B and much faster on the M3 (mature dotprod/i8mm kernels, tiled
@@ -97,8 +97,9 @@ is green on both the A1 and the M3.
 Same models, same box, same window — before → after, Bonsai-8B at
 4 cores: decode 2.5 → 5.3 tok/s (+112%); Bonsai-1.7B: 10.9 → 20.9
 (+92%). The levers, each measured alone: int32 block accumulation (+54%
-on the bare kernel), a sum-trick on the raw 2-bit codes (+12%,
-bit-identical by construction), interleaving the tied head (the
+on the bare kernel), a sum-trick on the raw 2-bit codes with the per-lane activation sums
+precooked at quantization time (+12% then a further +7%, bit-identical
+by construction), interleaving the tied head (the
 flat-format head was eating 22% of decode; the vocabulary is 151,669
 rows — not a multiple of 4 — so the last quad carries ghost rows at
 weight zero), vectorized fp16 attention with keys processed in pairs

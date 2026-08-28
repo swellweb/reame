@@ -15,7 +15,7 @@ These aren't just marketing claims; they are measured. Running Bonsai-8B (PrismM
 |  | Decode | Prompt Processing |
 |---|---|---|
 | **2 ARM cores** (Oracle Always Free) | **2.8 vs 2.46 tok/s (+14%)** | **4.3 vs 2.77 tok/s (+55%)** |
-| **4 ARM cores** | **5.3 vs 4.84 tok/s (+10%)** | **7.7 vs 5.5 tok/s (+40%)** |
+| **4 ARM cores** | **5.7 vs 4.84 tok/s (+18%)** | **7.9 vs 5.5 tok/s (+44%)** |
 
 These figures are the median of three back-to-back runs. Accuracy sits at 19/20 on a twenty-question fact exam run against the deployed server (the missed question is a borderline knowledge fact that the same weights answer correctly when allowed to reason first). The full methodology, raw numbers, and even the benchmarks we *lose* are documented in **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)**. A benchmark page that only shows wins is just advertising.
 
@@ -123,7 +123,7 @@ Every figure was measured on the specified hardware using the shipped binary. Th
 
 | What | Measured | Where |
 |---|---|---|
-| Bonsai-8B ternary vs the vendor's own runtime | **decode +10-14%, prompt +40-55%** | Oracle free tier, 2 and 4 cores |
+| Bonsai-8B ternary vs the vendor's own runtime | **decode +14-18%, prompt +44-55%** | Oracle free tier, 2 and 4 cores |
 | Fact exam on the deployed ternary lane | **19/20**, stable across four deployments | Oracle free tier |
 | Bonsai-8B on disk and in RAM | **2.2 GB** (2.125 bits/weight, end to end) | — |
 | Bonsai-1.7B decode on the same free box | **20.9 tok/s** at 4 cores | Oracle free tier |

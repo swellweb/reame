@@ -17,7 +17,7 @@ Quest'ultima affermazione si basa su dati misurati, non su promesse di marketing
 |  | Generazione | Lettura del prompt |
 |---|---|---|
 | **2 core ARM** (Oracle Always Free) | **2,8 contro 2,46 tok/s (+14%)** | **4,3 contro 2,77 tok/s (+55%)** |
-| **4 core ARM** | **5,3 contro 4,84 tok/s (+10%)** | **7,7 contro 5,5 tok/s (+40%)** |
+| **4 core ARM** | **5,7 contro 4,84 tok/s (+18%)** | **7,9 contro 5,5 tok/s (+44%)** |
 
 I risultati sono la mediana di tre esecuzioni consecutive. L'accuratezza è del 19/20 su un test di venti domande eseguito sul server in produzione — la singola risposta errata è dovuta a un limite di conoscenza che gli stessi pesi superano quando viene loro consentito di ragionare prima di rispondere. La metodologia completa, tutti i dati e anche i confronti in cui **perdiamo** sono disponibili in [BENCHMARKS.md](BENCHMARKS.md): una pagina di benchmark che mostra solo vittorie è pura pubblicità.
 
