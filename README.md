@@ -1,5 +1,3 @@
-***
-
 <p align="center">
   <img src="docs/figures/logo.svg" alt="Reame" width="300">
 </p>
@@ -58,7 +56,7 @@ curl http://127.0.0.1:8080/v1/chat/completions -d '{
 }'
 ```
 
-The 1.7B variant works the same way (`Ternary-Bonsai-1.7B-gguf`, 460 MB) and delivers 16-19 tok/s on the same free box. Conventional GGUF models still run through the llama.cpp lane — `reame run qwen2.5-1.5b` downloads and serves one in a single command. A configuration file is available for finer control (see [Configuration](#configuration)).
+The 1.7B variant works the same way (`Ternary-Bonsai-1.7B-gguf`, 460 MB) and delivers ~22 tok/s on the same free box. Conventional GGUF models still run through the llama.cpp lane — `reame run qwen2.5-1.5b` downloads and serves one in a single command. A configuration file is available for finer control (see [Configuration](#configuration)).
 
 <details>
 <summary><b>Build dependencies</b></summary>

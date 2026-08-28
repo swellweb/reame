@@ -1,5 +1,3 @@
-***
-
 <p align="center">
   <img src="figures/logo.svg" alt="Reame" width="300">
 </p>
@@ -58,7 +56,7 @@ curl http://127.0.0.1:8080/v1/chat/completions -d '{
 }'
 ```
 
-La variante da 1.7B funziona allo stesso modo (`Ternary-Bonsai-1.7B-gguf`, 460 MB) e genera 16-19 token al secondo sulla stessa macchina gratuita. I file GGUF convenzionali vengono instradati tramite il motore llama.cpp: il comando `reame run qwen2.5-1.5b` scarica e avvia il server in un'unica operazione.
+La variante da 1.7B funziona allo stesso modo (`Ternary-Bonsai-1.7B-gguf`, 460 MB) e genera ~22 token al secondo sulla stessa macchina gratuita. I file GGUF convenzionali vengono instradati tramite il motore llama.cpp: il comando `reame run qwen2.5-1.5b` scarica e avvia il server in un'unica operazione.
 
 ## Un esempio concreto
 
