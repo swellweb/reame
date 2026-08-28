@@ -49,15 +49,15 @@ master running TQ2_0 (2.06 bpw).
 | Box | Model | nucleo decode | rival decode | nucleo prefill | rival pp256 |
 |---|---|---|---|---|---|
 | **Oracle A1, 4 cores** | **Bonsai-8B** | **5.7** | **fork 4.84** | **7.9** | **5.5** |
-| **Oracle A1, 2 cores** | **Bonsai-8B** | **2.8** | **fork 2.46** | **4.3** | **2.77** |
+| **Oracle A1, 2 cores** | **Bonsai-8B** | **3.0** | **fork 2.46** | **4.3** | **2.77** |
 | Oracle A1, 4 cores | Bonsai-1.7B | 22.1 | mainline 31.6 | 33 | 66 |
 | Oracle A1, 2 cores | Bonsai-1.7B | 12.7 | mainline 16.75 | 19.4 | 33.3 |
 | Apple M3 Pro, 5 threads | Bonsai-1.7B | 85.7 | mainline 114.1 | 107 | 219 |
 
 The bold rows are the claim: on Bonsai-8B, against the vendor's own
 runtime, nucleo is **faster at both core counts on both phases** —
-decode +18% at 4 cores and +14% at 2; prompt processing 1.4-1.5× at
-both.
+decode +18% at 4 cores (5.6/5.7/5.7 back-to-back, median 5.7) and
++22% at 2 (3.0 vs 2.46); prompt processing 1.4-1.5× at both.
 
 The rows we lose are printed too. Mainline's TQ2_0 path is faster on the
 1.7B and much faster on the M3 (mature dotprod/i8mm kernels, tiled

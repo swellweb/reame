@@ -14,10 +14,10 @@ Quest'ultima affermazione si basa su dati misurati, non su promesse di marketing
 
 |  | Generazione | Lettura del prompt |
 |---|---|---|
-| **2 core ARM** (Oracle Always Free) | **2,8 contro 2,46 tok/s (+14%)** | **4,3 contro 2,77 tok/s (+55%)** |
+| **2 core ARM** (Oracle Always Free) | **3,0 contro 2,46 tok/s (+22%)** | **4,3 contro 2,77 tok/s (+55%)** |
 | **4 core ARM** | **5,7 contro 4,84 tok/s (+18%)** | **7,9 contro 5,5 tok/s (+44%)** |
 
-I risultati sono replicati su esecuzioni consecutive — il protocollo esatto per riga è nella pagina benchmark. L'accuratezza è del 19/20 su un test di venti domande eseguito sul server in produzione — la singola risposta errata è dovuta a un limite di conoscenza che gli stessi pesi superano quando viene loro consentito di ragionare prima di rispondere. La metodologia completa, tutti i dati e anche i confronti in cui **perdiamo** sono disponibili in [BENCHMARKS.md](BENCHMARKS.md): una pagina di benchmark che mostra solo vittorie è pura pubblicità.
+Le cifre in grassetto sono mediane di tre esecuzioni consecutive; il protocollo per riga è nella pagina benchmark. L'accuratezza è del 19/20 su un test di venti domande eseguito sul server in produzione — la singola risposta errata è dovuta a un limite di conoscenza che gli stessi pesi superano quando viene loro consentito di ragionare prima di rispondere. La metodologia completa, tutti i dati e anche i confronti in cui **perdiamo** sono disponibili in [BENCHMARKS.md](BENCHMARKS.md): una pagina di benchmark che mostra solo vittorie è pura pubblicità.
 
 L'API utilizzata è quella standard di OpenAI, pertanto i client esistenti funzionano senza richiedere modifiche. Sotto il cofano operano due motori: nucleo per i modelli ternari e di piccole dimensioni, e llama.cpp per tutto il resto.
 
