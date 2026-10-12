@@ -1,9 +1,8 @@
 name: CI
 
+# Solo a richiesta (Actions -> CI -> Run workflow): il job macos-14 conta 10x sulla quota gratuita.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build-and-test:
